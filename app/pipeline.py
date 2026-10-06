@@ -13,7 +13,7 @@ def pick_queries(keywords):
     if not keywords:
         return []
     qs = [keywords[0][0]]
-    if len(keywords) > 1 and keywords[1][1] >= max(10, keywords[0][1] * 0.3):
+    if len(keywords) > 1 and (keywords[1][1] or 0) >= max(10, (keywords[0][1] or 0) * 0.3):
         qs.append(keywords[1][0])
     return qs
 
@@ -72,6 +72,30 @@ async def process_page(jid, idx, page, project, outdir, sem_lock, done_cb):
         return item
 
 
+async def fill_missing_volumes(jid, pages):
+    """DataForSEO викликається ЛИШЕ для ключів без частотності."""
+    from . import volumes
+    for lang in ("ua", "ru"):
+        missing = list(dict.fromkeys(k for p in pages for k, v in (p.get(lang) or []) if v is None))
+        if not missing:
+            continue
+        if not volumes.dfs_enabled():
+            db.log(jid, f"{lang.upper()}: {len(missing)} ключів без частотності — DataForSEO не підключено, лишаємо «—»")
+            continue
+        try:
+            vols = await volumes.search_volume(missing, lang)
+            db.log(jid, f"{lang.upper()}: дозняв частотність для {len(missing)} ключів без неї (кеш + DataForSEO)")
+        except Exception as e:  # noqa: BLE001
+            db.log(jid, f"{lang.upper()}: частотність не знято: {e}")
+            continue
+        norm = {k.lower().strip(): v for k, v in vols.items()}
+        for p in pages:
+            p[lang] = sorted([(k, norm.get(" ".join(k.lower().split()), v) if v is None else v) for k, v in (p.get(lang) or [])],
+                             key=lambda x: -(x[1] or 0))
+    if all(v is not None for p in pages for l in ("ua", "ru") for _, v in (p.get(l) or [])):
+        db.log(jid, "Частотність є для всіх ключів — DataForSEO не використовувався")
+
+
 async def run_job(jid: str):
     job = db.get(jid)
     params = job["params"]
@@ -80,6 +104,7 @@ async def run_job(jid: str):
     outdir.mkdir(parents=True, exist_ok=True)
     db.update(jid, status="running", progress=0.02)
     db.log(jid, f"Старт: {len(pages)} сторінок, формати: {', '.join(formats)}")
+    await fill_missing_volumes(jid, pages)
     sem_lock = asyncio.Semaphore(max(1, config.PARALLEL_CLUSTERS))
     done = {"n": 0}
 

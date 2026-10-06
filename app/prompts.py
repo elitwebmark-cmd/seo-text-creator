@@ -105,7 +105,7 @@ def build_user_prompt(page: dict, project: dict, research: dict) -> str:
             continue
         r = research.get(lang, {})
         parts.append(f"\n## {lang.upper()}-версія. Кластер «{page.get('name_' + lang) or ''}»")
-        parts.append("Семантика (ключ — частотність): " + "; ".join(f"{k} — {v}" for k, v in kws))
+        parts.append("Семантика (ключ — частотність): " + "; ".join(f"{k} — {'?' if v is None else v}" for k, v in kws))
         for s in r.get("serps", []):
             parts.append(f"\n### Видача Google UA за «{s['query']}» (hl={s['lang']})")
             for o in s["organic"]:

@@ -48,7 +48,9 @@ const sumV = c => c ? c.keywords.reduce((a, k) => a + (+k[1] || 0), 0) : 0;
 function kwPreview(tr) {
   const u = SEM.ua[tr.querySelector('.selua').value], r = SEM.ru[tr.querySelector('.selru').value];
   const f = (c, l) => c ? `<b>${l}</b> ${c.keywords.slice(0,3).map(k => esc(k[0])).join(', ')}${c.keywords.length > 3 ? '…' : ''} <i>(Σ ${sumV(c)})</i>` : '';
-  tr.querySelector('.kws').innerHTML = [f(u,'UA'), f(r,'RU')].filter(Boolean).join('<br>') || '<span class="err">немає ключів</span>';
+  const miss = [u, r].filter(Boolean).reduce((a, c) => a + c.keywords.filter(k => k[1] === null || k[1] === undefined).length, 0);
+  tr.querySelector('.kws').innerHTML = ([f(u,'UA'), f(r,'RU')].filter(Boolean).join('<br>') || '<span class="err">немає ключів</span>')
+    + (miss ? `<br><span class="tag">без частотності: ${miss} — дозніметься через DataForSEO</span>` : '');
 }
 
 function addRow(p) {
@@ -64,8 +66,8 @@ function addRow(p) {
   return tr;
 }
 let EDIT_TR = null;
-const toText = c => c ? c.keywords.map(k => `${k[0]}; ${k[1]}`).join('\n') : '';
-const fromText = t => t.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const p = l.split(/\s*[;|\t]\s*/); return [p[0], parseInt(p[1]) || 0]; });
+const toText = c => c ? c.keywords.map(k => k[1] === null || k[1] === undefined ? k[0] : `${k[0]}; ${k[1]}`).join('\n') : '';
+const fromText = t => t.split('\n').map(l => l.trim()).filter(Boolean).map(l => { const p = l.split(/\s*[;|\t]\s*/); const n = parseInt(p[1]); return [p[0], Number.isNaN(n) ? null : n]; });
 function editKw(tr) {
   EDIT_TR = tr;
   const u = SEM.ua[tr.querySelector('.selua').value], r = SEM.ru[tr.querySelector('.selru').value];
@@ -80,7 +82,7 @@ $('#kwSave').onclick = () => {
     let c = SEM[l][s.value];
     if (!kws.length) { s.value = ''; return; }
     if (!c) { c = {name: $(nm).value || 'Нова сторінка', keywords: []}; SEM[l].push(c); }
-    c.name = $(nm).value || c.name; c.keywords = kws.sort((a, b) => b[1] - a[1]);
+    c.name = $(nm).value || c.name; c.keywords = kws.sort((a, b) => (b[1] || 0) - (a[1] || 0));
     const idx = SEM[l].indexOf(c);
     document.querySelectorAll('#pagesTbl ' + sel).forEach(x => { const v = x.value; x.innerHTML = opts(l, v === '' ? null : +v); });
     s.value = idx;

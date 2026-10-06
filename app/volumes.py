@@ -64,18 +64,27 @@ async def diagnose() -> dict:
 
 
 async def search_volume(keywords: list[str], lang: str) -> dict[str, int]:
-    """{ключ: середньомісячна частотність в Україні}."""
+    """{ключ: середньомісячна частотність в Україні}.
+    Спершу кеш (VOLUME_CACHE_DAYS), у DataForSEO йдуть лише ключі, яких у кеші немає."""
     if config.MOCK:
         return {k: (len(k) * 7) % 120 for k in keywords}
     if not dfs_enabled():
         return {}
+    from . import db
     kws = _clean(keywords)
-    out = {}
+    out = db.cached_volumes(kws, lang, config.VOLUME_CACHE_DAYS)
+    kws = [k for k in kws if k not in out]
+    fresh = {}
     for i in range(0, len(kws), 1000):
         res = await _dfs("search_volume", {"keywords": kws[i:i + 1000], "location_code": config.UA_LOCATION_CODE,
                                             "language_code": HL.get(lang, "uk")})
         for item in res:
-            out[item.get("keyword", "")] = int(item.get("search_volume") or 0)
+            fresh[item.get("keyword", "")] = int(item.get("search_volume") or 0)
+    for k in kws:  # ключі, яких Google Ads не повернув, вважаємо нульовими, щоб не платити за них повторно
+        fresh.setdefault(k, 0)
+    if fresh:
+        db.save_volumes(fresh, lang)
+    out.update(fresh)
     return out
 
 

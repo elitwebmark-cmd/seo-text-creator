@@ -29,6 +29,32 @@ def init():
                   "WHERE status IN ('queued','running')")
 
 
+def _vol_table(c):
+    c.execute("CREATE TABLE IF NOT EXISTS volumes(keyword TEXT, lang TEXT, volume INTEGER, ts REAL, PRIMARY KEY(keyword, lang))")
+
+
+def cached_volumes(keywords, lang, days):
+    if not keywords:
+        return {}
+    since = time.time() - days * 86400
+    out = {}
+    with _lock, _conn() as c:
+        _vol_table(c)
+        for i in range(0, len(keywords), 500):
+            part = keywords[i:i + 500]
+            q = f"SELECT keyword, volume FROM volumes WHERE lang=? AND ts>=? AND keyword IN ({','.join('?' * len(part))})"
+            for r in c.execute(q, (lang, since, *part)):
+                out[r["keyword"]] = r["volume"]
+    return out
+
+
+def save_volumes(vols: dict, lang: str):
+    now = time.time()
+    with _lock, _conn() as c:
+        _vol_table(c)
+        c.executemany("INSERT OR REPLACE INTO volumes VALUES(?,?,?,?)", [(k, lang, int(v), now) for k, v in vols.items()])
+
+
 def create(title: str, params: dict) -> str:
     jid = uuid.uuid4().hex[:12]
     with _lock, _conn() as c:

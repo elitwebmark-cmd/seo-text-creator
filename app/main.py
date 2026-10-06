@@ -139,8 +139,8 @@ def create_job(body: JobIn):
     for p in body.pages:
         d = p.model_dump()
         for l in ("ua", "ru"):
-            d[l] = [(str(k), int(v or 0)) for k, v in d[l] if str(k).strip()]
-            d[l].sort(key=lambda x: -x[1])
+            d[l] = [(str(k), semantics._vol(v)) for k, v in d[l] if str(k).strip()]
+            d[l].sort(key=lambda x: -(x[1] or 0))
         if d["ua"] or d["ru"]:
             pages.append(d)
     if not pages:

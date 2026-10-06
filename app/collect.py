@@ -117,7 +117,7 @@ async def collect_one(entry: str, langs: list[str], project: dict, log) -> dict:
         questions[lang] = list(dict.fromkeys(qs))
         if not (volumes.dfs_enabled() or config.MOCK):
             log("DataForSEO вимкнено (не задано логін/пароль) — частотність не збирається")
-        if volumes.dfs_enabled() or config.MOCK:
+        if (volumes.dfs_enabled() and config.DATAFORSEO_IDEAS) or config.MOCK:
             try:
                 log(f"{lang.upper()}: ідеї Google Ads")
                 for k, v in (await volumes.keyword_ideas(sd, lang)).items():
@@ -157,8 +157,8 @@ async def collect_one(entry: str, langs: list[str], project: dict, log) -> dict:
         for k in keys or []:
             nk = _norm(k)
             if nk in pool and all(nk != x[0] for x in out):
-                out.append((nk, int(pool[nk] or 0)))
-        return sorted(out, key=lambda x: -x[1])
+                out.append((nk, None if pool[nk] is None else int(pool[nk])))
+        return sorted(out, key=lambda x: -(x[1] or 0))
 
     result = {"entry": entry, "summary": seeds.get("service_summary", ""), "notes": sem.get("notes", ""),
               "pages": [{"name_ua": seeds.get("page_name_ua", entry), "name_ru": seeds.get("page_name_ru", entry),

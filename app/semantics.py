@@ -18,13 +18,14 @@ def _lang_from(name: str):
 
 
 def _vol(v):
-    if v is None:
-        return 0
+    """int — частотність відома (у т.ч. 0 / «0–10»), None — не вказана."""
+    if v is None or str(v).strip() in ("", "-", "—", "?"):
+        return None
     if isinstance(v, (int, float)):
         return int(v)
     s = str(v).strip().replace(" ", "")
     m = re.match(r"^(\d+)", s)
-    return int(m.group(1)) if m else 0
+    return int(m.group(1)) if m else None
 
 
 def _find_cols(rows):
@@ -76,11 +77,11 @@ def parse_xlsx(data: bytes):
             if k.lower() in ("keyword", "ключове слово", "ключевое слово"):
                 continue
             if all(k.lower() != x[0].lower() for x in bucket["keywords"]):
-                bucket["keywords"].append((k, _vol(row[vc]) if vc is not None else 0))
+                bucket["keywords"].append((k, _vol(row[vc]) if vc is not None else None))
     for lang in LANGS:
         out[lang] = [c for c in out[lang] if c["keywords"]]
         for c in out[lang]:
-            c["keywords"].sort(key=lambda x: -x[1])
+            c["keywords"].sort(key=lambda x: -(x[1] or 0))
     return out
 
 
@@ -101,13 +102,13 @@ def parse_text(text: str):
             continue
         parts = re.split(r"\s*[;|\t]\s*", line)
         kw = parts[0].strip()
-        vol = _vol(parts[1]) if len(parts) > 1 else 0
+        vol = _vol(parts[1]) if len(parts) > 1 else None
         if cur is None:
             cur = {"name": kw, "keywords": []}
             clusters.append(cur)
         cur["keywords"].append((kw, vol))
     for c in clusters:
-        c["keywords"].sort(key=lambda x: -x[1])
+        c["keywords"].sort(key=lambda x: -(x[1] or 0))
     return [c for c in clusters if c["keywords"]]
 
 

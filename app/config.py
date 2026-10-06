@@ -39,3 +39,6 @@ SKIP_DOMAINS = {
 DATAFORSEO_LOGIN = _env("DATAFORSEO_LOGIN")
 DATAFORSEO_PASSWORD = _env("DATAFORSEO_PASSWORD")
 UA_LOCATION_CODE = 2804  # Україна в Google Ads / DataForSEO
+# Платні «ідеї ключів» Google Ads при автозборі (за замовчуванням вимкнено — лише частотність)
+DATAFORSEO_IDEAS = os.getenv("DATAFORSEO_IDEAS", "0") == "1"
+VOLUME_CACHE_DAYS = _int("VOLUME_CACHE_DAYS", 90)

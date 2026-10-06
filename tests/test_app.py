@@ -65,3 +65,35 @@ def test_semantics_job_mock():
     assert client.get(f"/api/jobs/{jid}/files/Semantics.xlsx").status_code == 200
     kinds = {x["id"]: x["kind"] for x in client.get("/api/jobs").json()}
     assert kinds[jid] == "semantics"
+
+
+def test_text_without_volume_is_none():
+    c = semantics.parse_text("# X\nключ один\nключ два; 30")
+    assert dict(c[0]["keywords"]) == {"ключ один": None, "ключ два": 30}
+
+
+def test_dfs_only_for_missing(monkeypatch):
+    import asyncio
+    from app import pipeline, volumes, db
+    calls = []
+
+    async def fake_sv(kws, lang):
+        calls.append((lang, list(kws)))
+        return {k: 70 for k in kws}
+
+    monkeypatch.setattr(volumes, "search_volume", fake_sv)
+    monkeypatch.setattr(volumes, "dfs_enabled", lambda: True)
+    jid = db.create("t", {})
+    full = [{"ua": [("a", 10), ("b", 0)], "ru": [("c", 5)]}]
+    asyncio.run(pipeline.fill_missing_volumes(jid, full))
+    assert calls == []  # частотність є — DataForSEO не чіпаємо
+    part = [{"ua": [("a", 10), ("b", None)], "ru": [("c", 5)]}]
+    asyncio.run(pipeline.fill_missing_volumes(jid, part))
+    assert calls == [("ua", ["b"])]
+    assert dict(part[0]["ua"])["b"] == 70
+
+
+def test_volume_cache(monkeypatch):
+    from app import db
+    db.save_volumes({"тест кеш": 40}, "ua")
+    assert db.cached_volumes(["тест кеш", "інший"], "ua", 90) == {"тест кеш": 40}

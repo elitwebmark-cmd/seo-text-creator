@@ -48,6 +48,10 @@ def vol_sum(items):
     return int(sum(v for _, v in items if isinstance(v, (int, float))))
 
 
+def vol_txt(v):
+    return "—" if v is None else v
+
+
 def safe_title(wb, name):
     name = re.sub(r"[\[\]\*\?/\\:]", " ", name)[:31].strip()
     base, i = name, 2
@@ -157,7 +161,7 @@ def _tz_sheet(wb, item, lang):
     hdr(r0, 6, f"Семантика кластера ({LANG})", "Частотність")
     rr = r0 + 1
     for k, v in sem:
-        ws.cell(rr, 6, k).font = f_t; ws.cell(rr, 7, v).font = f_t
+        ws.cell(rr, 6, k).font = f_t; ws.cell(rr, 7, vol_txt(v)).font = f_t
         for col in (6, 7):
             ws.cell(rr, col).border = box
         rr += 1
