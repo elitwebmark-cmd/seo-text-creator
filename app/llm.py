@@ -53,7 +53,8 @@ def generate_tz(page: dict, project: dict, research: dict) -> dict:
         from .mock import mock_tz
         return mock_tz(page)
     data = call_tool(SYSTEM, build_user_prompt(page, project, research), TOOL, check=lambda d: bool(d.get("blocks")))
-    return normalize(data)
+    from .norms import fix_generated
+    return fix_generated(normalize(data))
 
 
 def normalize(d: dict) -> dict:

@@ -77,11 +77,20 @@ def build(texts: list[dict], path):
         doc.add_heading("Перевірка тексту (службовий блок, не публікувати)", 3)
         doc.add_paragraph(f"Обсяг: {rep['chars']} зн. з пробілами. Раундів редагування: {t.get('rounds', 0)}.")
         if rep["issues"]:
-            doc.add_paragraph("Не вдалося виправити автоматично:")
+            doc.add_paragraph().add_run("Потребує уваги (не вдалося виправити автоматично):").bold = True
             for x in rep["issues"]:
                 doc.add_paragraph(x, style="List Bullet")
-        for x in rep.get("warnings", []):
-            doc.add_paragraph(x, style="List Bullet")
+        else:
+            doc.add_paragraph().add_run("Критичних зауважень немає.").bold = True
+        if rep.get("warnings"):
+            doc.add_paragraph("Рекомендації (не критично):")
+            for x in rep["warnings"]:
+                doc.add_paragraph(x, style="List Bullet")
+        secs = [s for s in rep.get("sections", []) if s[1] and s[2]]
+        if secs:
+            doc.add_paragraph("Обсяги розділів:")
+            for t_, a, lo, hi in secs:
+                doc.add_paragraph(f"{t_}: {a} зн. (ціль {lo}–{hi})", style="List Bullet")
         if t.get("spelling"):
             doc.add_paragraph("Залишкові зауваження LanguageTool (перевірте вручну, частина може бути хибною):")
             for x in t["spelling"][:15]:

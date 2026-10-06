@@ -7,7 +7,8 @@ import openpyxl
 HEAD_RE = re.compile(r"^\s*(?:\d+\.\s*)?(H[1-3])\s*[:.\-–]?\s*(.+)$", re.I)
 SKIP_SHEETS = ("зведення", "методика", "аналіз топу", "свод", "сводка")
 FREQ_RE = re.compile(r"^\s*\d+\s*([–\-]\s*\d+)?(\s*\(.*\))?\s*$")
-VOL_RE = re.compile(r"(\d[\d\s ]{0,6})\s*[–\-]\s*(\d[\d\s ]{0,6})\s*(?:зн|знак|символ)", re.I)
+_N = r"(\d{1,2}[ \u00a0]\d{3}|\d+)"
+VOL_RE = re.compile(r"(?<![\w])" + _N + r"\s*[–\-]\s*" + _N + r"\s*(?:зн|знак|символ)", re.I)
 META = {"title": "title", "description": "desc", "рекомендований url": "url"}
 
 
