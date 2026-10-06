@@ -189,6 +189,41 @@ async function writeTexts(id) {
   if (!r.ok) alert(d.detail || 'Помилка');
   loadJobs();
 }
+let TZ_TOKEN = null;
+const tzFile = $('#tzFile');
+tzFile.onchange = () => $('#tzFname').textContent = tzFile.files[0]?.name || 'Оберіть файл';
+['dragover','dragenter'].forEach(e => $('#tzDrop').addEventListener(e, ev => { ev.preventDefault(); $('#tzDrop').classList.add('over'); }));
+['dragleave','drop'].forEach(e => $('#tzDrop').addEventListener(e, ev => { ev.preventDefault(); $('#tzDrop').classList.remove('over'); }));
+$('#tzDrop').addEventListener('drop', ev => { tzFile.files = ev.dataTransfer.files; tzFile.onchange(); });
+$('#tzParseBtn').onclick = async () => {
+  const fd = new FormData();
+  if (tzFile.files[0]) fd.append('file', tzFile.files[0]);
+  fd.append('text', $('#tzText').value);
+  $('#tzMsg').textContent = 'Розпізнаю…';
+  const r = await fetch('/api/tz/parse', {method: 'POST', body: fd});
+  const d = await r.json().catch(() => ({detail: `Помилка сервера (HTTP ${r.status})`}));
+  if (!r.ok) { $('#tzMsg').textContent = d.detail || 'Помилка'; return; }
+  TZ_TOKEN = d.token;
+  $('#tzMsg').textContent = `Знайдено ТЗ: ${d.items.length}`;
+  $('#tzTbl tbody').innerHTML = d.items.map((it, i) => `<tr><td><input type="checkbox" class="tzinc" data-i="${i}" checked></td>
+    <td>${esc(it.sheet)}<div class="muted small">${esc(it.name)}</div></td>
+    <td><select class="tzlang" data-i="${i}"><option value="ua" ${it.lang === 'ua' ? 'selected' : ''}>UA</option><option value="ru" ${it.lang === 'ru' ? 'selected' : ''}>RU</option></select></td>
+    <td>${esc(it.stats.headings)}</td><td>${esc(it.stats.keywords)}</td><td class="small">${esc(it.stats.volume)}</td></tr>`).join('');
+  $('#tzList').classList.remove('hidden');
+};
+$('#tzAll').onchange = e => document.querySelectorAll('.tzinc').forEach(c => c.checked = e.target.checked);
+$('#tzTextsBtn').onclick = async () => {
+  const selected = [...document.querySelectorAll('.tzinc:checked')].map(c => +c.dataset.i);
+  const langs = {}; document.querySelectorAll('.tzlang').forEach(s => langs[s.dataset.i] = s.value);
+  const project = {domain: $('#domain').value.trim(), facts: $('#facts').value.trim(), notes: $('#notes').value.trim()};
+  $('#tzTextsBtn').disabled = true; $('#tzTextsMsg').textContent = 'Запускаю…';
+  try {
+    const r = await fetch('/api/tz/texts', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: TZ_TOKEN, selected, langs, project, title: $('#title').value.trim()})});
+    const d = await r.json().catch(() => ({detail: `Помилка сервера (HTTP ${r.status})`}));
+    $('#tzTextsMsg').textContent = r.ok ? `Запущено (${selected.length} ТЗ) — прогрес праворуч.` : (d.detail || 'Помилка');
+  } catch (e) { $('#tzTextsMsg').textContent = 'Немає зв’язку з сервером: ' + e.message; }
+  $('#tzTextsBtn').disabled = false; loadJobs();
+};
 async function delJob(id) { if (!confirm('Видалити задачу зі списку?')) return; await fetch('/api/jobs/' + id, {method: 'DELETE'}); loadJobs(); }
 loadJobs(); setInterval(loadJobs, 4000);
 

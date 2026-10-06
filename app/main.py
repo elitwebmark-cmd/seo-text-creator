@@ -1,4 +1,5 @@
 import io
+import re
 from pathlib import Path
 
 import openpyxl
@@ -188,6 +189,58 @@ def texts_job(jid: str):
     new = db.create("Тексти: " + src["title"], {"kind": "texts", "source": jid})
     pipeline.start(new)
     return {"id": new}
+
+
+@app.post("/api/tz/parse")
+async def tz_parse(file: UploadFile | None = File(None), text: str = Form("")):
+    import json as _json, uuid as _uuid
+    from . import tz_import
+    entries = []
+    if file is not None and file.filename:
+        data = await file.read()
+        name = file.filename.lower()
+        try:
+            if name.endswith(".xlsx"):
+                entries = tz_import.parse_xlsx(data)
+            elif name.endswith(".docx"):
+                entries = [tz_import.raw_entry(tz_import.docx_text(data), file.filename)]
+            else:
+                raise HTTPException(400, "Підтримуються .xlsx і .docx")
+        except HTTPException:
+            raise
+        except Exception as e:  # noqa: BLE001
+            raise HTTPException(400, f"Не вдалося прочитати файл: {e}")
+    if text.strip():
+        entries.append(tz_import.raw_entry(text.strip(), "Вставлене ТЗ"))
+    if not entries:
+        raise HTTPException(400, "ТЗ не знайдено. Потрібні заголовки H1/H2/H3 (або завантажте docx / вставте текст).")
+    token = _uuid.uuid4().hex[:12]
+    up = config.DATA_DIR / "uploads"
+    up.mkdir(exist_ok=True)
+    (up / f"{token}.json").write_text(_json.dumps(entries, ensure_ascii=False), encoding="utf-8")
+    return {"token": token, "items": [{"sheet": e["sheet"], "lang": e["lang"], "name": e["name"], "stats": e["stats"]} for e in entries]}
+
+
+class TzTextsIn(BaseModel):
+    token: str
+    selected: list[int] = Field(default_factory=list)
+    langs: dict = Field(default_factory=dict)
+    project: dict = Field(default_factory=dict)
+    title: str = ""
+
+
+@app.post("/api/tz/texts")
+def tz_texts(body: TzTextsIn):
+    if not re.fullmatch(r"[0-9a-f]{12}", body.token) or not (config.DATA_DIR / "uploads" / f"{body.token}.json").exists():
+        raise HTTPException(404, "Завантаження не знайдено — розберіть ТЗ ще раз")
+    if not body.selected:
+        raise HTTPException(400, "Оберіть хоча б одне ТЗ")
+    if not config.MOCK and not config.ANTHROPIC_API_KEY:
+        raise HTTPException(400, "На сервері не задано ANTHROPIC_API_KEY")
+    jid = db.create(body.title or f"Тексти за готовими ТЗ ({len(body.selected)})",
+                    {"kind": "texts_import", "token": body.token, "selected": body.selected, "langs": body.langs, "project": body.project})
+    pipeline.start(jid)
+    return {"id": jid}
 
 
 @app.post("/api/volumes")

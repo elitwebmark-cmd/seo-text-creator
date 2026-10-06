@@ -79,6 +79,17 @@
     <button class="btn primary" id="genBtn">Згенерувати ТЗ</button>
     <span id="genMsg" class="muted"></span>
   </div>
+  <div class="card">
+    <h2><span class="step">✎</span> Вже є ТЗ? Напишіть тексти</h2>
+    <p class="muted small">Завантажте готові ТЗ: Excel (Advanced / Base цього сервісу або ваш формат «H1 / H2 / H3 + коментарі + ключі з частотою», кожна вкладка — окреме ТЗ), Word або вставте текстом. Факти про компанію беруться з кроку 1.</p>
+    <label class="drop" id="tzDrop"><input type="file" id="tzFile" accept=".xlsx,.docx"><span id="tzFname">Перетягніть .xlsx / .docx або натисніть, щоб обрати</span></label>
+    <label>…або вставте ТЗ текстом<textarea id="tzText" rows="4" placeholder="H1: …&#10;коментар…&#10;H2: …"></textarea></label>
+    <button class="btn" id="tzParseBtn">Розпізнати ТЗ</button> <span id="tzMsg" class="muted"></span>
+    <div id="tzList" class="hidden">
+      <div class="table-wrap"><table id="tzTbl"><thead><tr><th><input type="checkbox" id="tzAll" checked></th><th>Вкладка / ТЗ</th><th>Мова тексту</th><th>Заголовків</th><th>Ключів</th><th>Обсяг</th></tr></thead><tbody></tbody></table></div>
+      <button class="btn primary" id="tzTextsBtn">Написати тексти</button> <span id="tzTextsMsg" class="muted"></span>
+    </div>
+  </div>
 </section>
 
 <aside class="col-side">

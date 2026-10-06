@@ -204,6 +204,46 @@ async def run_texts_job(jid: str):
     db.update(jid, status=status, progress=1.0, files=files, error="\n".join(errors))
 
 
+async def run_texts_import_job(jid: str):
+    """Тексти за завантаженими готовими ТЗ."""
+    import json as _json
+    from . import tz_import
+    params = db.get(jid)["params"]
+    entries = _json.loads((config.DATA_DIR / "uploads" / f"{params['token']}.json").read_text(encoding="utf-8"))
+    outdir = config.DATA_DIR / "jobs" / jid
+    outdir.mkdir(parents=True, exist_ok=True)
+    db.update(jid, status="running", progress=0.02)
+    items, errors = [], []
+    for n, idx in enumerate(params["selected"], 1):
+        if idx >= len(entries):
+            continue
+        e = entries[idx]
+        lang = (params.get("langs") or {}).get(str(idx)) or e["lang"]
+        try:
+            if e.get("tz") is None:
+                db.log(jid, f"[{e['sheet']}] Claude розбирає ТЗ довільного формату")
+                if config.MOCK:
+                    from .mock import mock_tz
+                    e = {**e, "tz": mock_tz({"name_ua": e["sheet"]})}
+                else:
+                    e = await asyncio.to_thread(tz_import.llm_import, e["raw"], e["sheet"])
+            tz = e["tz"]
+            tz["blocks"] = [tuple(b) for b in tz["blocks"]]
+            for k in ("kw_ru", "kw_ua", "lsi_ru", "lsi_ua"):
+                tz[k] = [tuple(x) for x in tz.get(k, [])]
+            if lang != e["lang"]:  # користувач змінив мову — переносимо ключі
+                tz[f"kw_{lang}"], tz[f"lsi_{lang}"] = tz.get(f"kw_{e['lang']}", []), tz.get(f"lsi_{e['lang']}", [])
+            tz["short"] = (tz.get("short") or e["sheet"])[:20]
+            items.append({"id": f"{n:02d}", "tz": tz, "sem": {lang: [("—", None)]}, "research": None})
+            db.log(jid, f"[{e['sheet']}] ТЗ прийнято: {lang.upper()}, обсяг {tz.get('volume') or 'не вказано'}")
+        except Exception as ex:  # noqa: BLE001
+            errors.append(f"{e['sheet']}: {ex}")
+            db.log(jid, f"ПОМИЛКА [{e['sheet']}]: {ex}")
+    files = await write_texts(jid, items, params.get("project", {}), outdir, errors) if items else []
+    status = "done" if files and not errors else ("partial" if files else "error")
+    db.update(jid, status=status, progress=1.0, files=files, error="\n".join(errors))
+
+
 async def run_volumes_job(jid: str):
     """Лише частотність для готових кластерів → Semantics.xlsx у форматі «кластер / ключ / частотність»."""
     from . import collect
@@ -256,7 +296,8 @@ def start(jid: str):
     def _runner():
         try:
             kind = (db.get(jid)["params"] or {}).get("kind", "tz")
-            runner = {"semantics": run_semantics_job, "volumes": run_volumes_job, "texts": run_texts_job}.get(kind, run_job)
+            runner = {"semantics": run_semantics_job, "volumes": run_volumes_job, "texts": run_texts_job,
+                      "texts_import": run_texts_import_job}.get(kind, run_job)
             asyncio.run(runner(jid))
         except Exception as e:  # noqa: BLE001
             db.update(jid, status="error", error=str(e))

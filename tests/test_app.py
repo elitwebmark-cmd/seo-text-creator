@@ -147,3 +147,36 @@ def test_checker_finds_problems():
     md = "# Неправильний заголовок\n\nКороткий текст."
     rep = writer.check(md, tz, "ua")
     assert not rep["ok"] and any("обсяг" in x.lower() for x in rep["issues"]) and any("Немає заголовка" in x for x in rep["issues"])
+
+
+def test_import_existing_tz_and_write_texts():
+    import openpyxl, io
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "SERM RU"
+    for i, (a, c, d) in enumerate([("H1 SERM: управление репутацией", "serm услуги", "2-3"),
+                                   ("объём текста: 3000–4000 зн", "отзывы", "3-6"),
+                                   ("H2: Что такое SERM", None, None), ("400–600 зн. Определение.", None, None),
+                                   ("FAQ", None, None), ("Сколько стоит SERM?", None, None)], 1):
+        ws.cell(i, 1, a)
+        if c:
+            ws.cell(i, 3, c); ws.cell(i, 4, d)
+    buf = io.BytesIO(); wb.save(buf)
+    r = client.post("/api/tz/parse", files={"file": ("tz.xlsx", buf.getvalue())}, data={"text": "H1: Тест\nH2: Розділ один\nH2: Розділ два"})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["items"][0]["lang"] == "ru" and d["items"][0]["stats"]["keywords"] == 2
+    assert len(d["items"]) == 2  # xlsx-аркуш + вставлений текст
+    j = _wait(client.post("/api/tz/texts", json={"token": d["token"], "selected": [0, 1]}).json()["id"])
+    assert j["status"] in ("done", "partial") and any(f.endswith(".docx") for f in j["files"]), j
+
+
+def test_import_example_file_structure():
+    from app import tz_import
+    from pathlib import Path
+    p = Path("/root/.claude/uploads/ab413567-f57b-5cd8-80ea-d81f0a266c86/b7f75787-_______________________________elit-web.ua.xlsx")
+    if not p.exists():
+        return
+    r = tz_import.parse_xlsx(p.read_bytes())
+    assert len(r) == 4 and all(x["lang"] == "ru" for x in r)
+    assert r[0]["tz"]["blocks"][0][0] == "h1"
