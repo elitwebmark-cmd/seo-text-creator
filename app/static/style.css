@@ -50,3 +50,7 @@ input,textarea,select{font-weight:400!important}
 ::placeholder{color:#a3a9b6}
 .col-side{position:sticky;top:70px;align-self:start;max-height:calc(100vh - 90px);overflow:auto}
 @media(max-width:1000px){.col-side{position:static;max-height:none}}
+.row-inline{display:flex;gap:14px;align-items:center;flex-wrap:wrap}.chk{display:flex;gap:6px;align-items:center;margin:0}
+.dlg-body{padding:14px 16px}.kws{cursor:pointer}.kws:hover{background:#f7f9ff}
+.tag{font-size:10px;padding:1px 6px;border-radius:8px;background:#fff3e0;color:var(--warn);margin-left:4px}
+.notes{font-size:12px;background:#f7f9ff;border-radius:8px;padding:8px 10px;margin-bottom:10px;white-space:pre-wrap}

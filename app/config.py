@@ -30,3 +30,7 @@ SKIP_DOMAINS = {
     "support.google.com", "play.google.com", "apps.apple.com", "gov.ua", "rada.gov.ua",
     "dou.ua", "pinterest.com", "quora.com",
 }
+
+DATAFORSEO_LOGIN = os.getenv("DATAFORSEO_LOGIN", "")
+DATAFORSEO_PASSWORD = os.getenv("DATAFORSEO_PASSWORD", "")
+UA_LOCATION_CODE = 2804  # Україна в Google Ads / DataForSEO

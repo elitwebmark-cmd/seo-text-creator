@@ -50,3 +50,18 @@ def test_full_job_mock():
     assert len(j["files"]) == 2
     for f in j["files"]:
         assert client.get(f"/api/jobs/{jid}/files/{f}").status_code == 200
+
+
+def test_semantics_job_mock():
+    jid = client.post("/api/semantics", json={"entries": ["SERM послуги", "https://example.com/ua/serm"], "langs": ["ua", "ru"]}).json()["id"]
+    for _ in range(60):
+        j = client.get(f"/api/jobs/{jid}").json()
+        if j["status"] in ("done", "error", "partial"):
+            break
+        time.sleep(0.3)
+    assert j["status"] == "done", j
+    d = client.get(f"/api/jobs/{jid}/semantics").json()
+    assert d["ua"] and d["ru"] and d["pages"]
+    assert client.get(f"/api/jobs/{jid}/files/Semantics.xlsx").status_code == 200
+    kinds = {x["id"]: x["kind"] for x in client.get("/api/jobs").json()}
+    assert kinds[jid] == "semantics"

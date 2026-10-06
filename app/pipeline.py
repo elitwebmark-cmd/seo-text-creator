@@ -115,13 +115,38 @@ async def run_job(jid: str):
     db.log(jid, "Завершено" if items else "Не вдалося згенерувати жодного ТЗ")
 
 
+async def run_semantics_job(jid: str):
+    from . import collect
+    job = db.get(jid)
+    params = job["params"]
+    entries, langs, project = params["entries"], params["langs"], params.get("project", {})
+    outdir = config.DATA_DIR / "jobs" / jid
+    outdir.mkdir(parents=True, exist_ok=True)
+    db.update(jid, status="running", progress=0.03)
+    db.log(jid, f"Збір семантики: {len(entries)} послуг/сторінок, мови: {', '.join(l.upper() for l in langs)}")
+    results = []
+    for i, e in enumerate(entries):
+        results += await collect.run([e], langs, project, lambda m: db.log(jid, m))
+        db.update(jid, progress=round(0.05 + 0.9 * (i + 1) / len(entries), 3))
+    if not results:
+        db.update(jid, status="error", progress=1.0, error="Не вдалося зібрати семантику")
+        return
+    (outdir / "semantics.json").write_text(collect.dumps(results), encoding="utf-8")
+    fn = "Semantics.xlsx"
+    await asyncio.to_thread(collect.semantics_xlsx, results, outdir / fn)
+    status = "done" if len(results) == len(entries) else "partial"
+    db.update(jid, status=status, progress=1.0, files=[fn])
+    db.log(jid, "Семантику зібрано. Натисніть «Взяти в роботу», щоб перейти до ТЗ.")
+
+
 def start(jid: str):
     """Запуск у фоні (окремий event loop у потоці)."""
     import threading
 
     def _runner():
         try:
-            asyncio.run(run_job(jid))
+            kind = (db.get(jid)["params"] or {}).get("kind", "tz")
+            asyncio.run(run_semantics_job(jid) if kind == "semantics" else run_job(jid))
         except Exception as e:  # noqa: BLE001
             db.update(jid, status="error", error=str(e))
             db.log(jid, "Фатальна помилка: " + "".join(traceback.format_exception_only(type(e), e)))

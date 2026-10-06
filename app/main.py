@@ -76,6 +76,7 @@ def health():
         "anthropic_key": bool(config.ANTHROPIC_API_KEY),
         "serper_key": bool(config.SERPER_API_KEY),
         "model": config.ANTHROPIC_MODEL,
+        "dataforseo": bool(config.DATAFORSEO_LOGIN and config.DATAFORSEO_PASSWORD),
     }
 
 
@@ -138,6 +139,41 @@ def create_job(body: JobIn):
     jid = db.create(title, {"project": body.project, "pages": pages, "formats": formats})
     pipeline.start(jid)
     return {"id": jid}
+
+
+class SemIn(BaseModel):
+    entries: list[str]
+    langs: list[str] = Field(default_factory=lambda: ["ua", "ru"])
+    project: dict = Field(default_factory=dict)
+
+
+@app.post("/api/semantics")
+def collect_semantics(body: SemIn):
+    entries = [e.strip() for e in body.entries if e.strip()][:20]
+    langs = [l for l in body.langs if l in ("ua", "ru")] or ["ua"]
+    if not entries:
+        raise HTTPException(400, "Вкажіть хоча б одну послугу або URL")
+    if not config.MOCK:
+        missing = [n for n, v in (("ANTHROPIC_API_KEY", config.ANTHROPIC_API_KEY), ("SERPER_API_KEY", config.SERPER_API_KEY)) if not v]
+        if missing:
+            raise HTTPException(400, "На сервері не задано: " + ", ".join(missing))
+    title = "Семантика: " + ", ".join(e[:40] for e in entries[:3]) + ("…" if len(entries) > 3 else "")
+    jid = db.create(title, {"kind": "semantics", "entries": entries, "langs": langs, "project": body.project})
+    pipeline.start(jid)
+    return {"id": jid}
+
+
+@app.get("/api/jobs/{jid}/semantics")
+def job_semantics(jid: str):
+    from . import collect
+    import json as _json
+    path = config.DATA_DIR / "jobs" / jid / "semantics.json"
+    if not path.exists():
+        raise HTTPException(404, "Семантика ще не готова")
+    results = _json.loads(path.read_text(encoding="utf-8"))
+    out = collect.to_semantics(results)
+    out["notes"] = [{"entry": r["entry"], "notes": r.get("notes", ""), "source": r.get("volumes_source", "")} for r in results]
+    return out
 
 
 @app.get("/api/jobs")

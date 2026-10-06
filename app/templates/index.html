@@ -31,10 +31,18 @@
   <div class="card">
     <h2><span class="step">2</span> Семантика</h2>
     <div class="tabs">
-      <button class="tab active" data-tab="file">Файл xlsx</button>
+      <button class="tab active" data-tab="auto">Зібрати автоматично</button>
+      <button class="tab" data-tab="file">Файл xlsx</button>
       <button class="tab" data-tab="text">Вставити текстом</button>
     </div>
-    <div class="tabpane" id="tab-file">
+    <div class="tabpane" id="tab-auto">
+      <p class="muted small">Один рядок — одна послуга або URL сторінки-прикладу. Сервіс сформує сиди, розширить їх підказками Google, «Пов’язаними запитами» та ідеями Google Ads, підтягне частотність по Україні, почистить і розкладе по сторінках.</p>
+      <label>Послуги / URL<textarea id="entries" rows="4" placeholder="SERM — управління репутацією в інтернеті&#10;https://competitor.ua/services/lokalnoe-seo/"></textarea></label>
+      <div class="row-inline"><label class="chk"><input type="checkbox" class="lang" value="ua" checked> UA</label><label class="chk"><input type="checkbox" class="lang" value="ru" checked> RU</label>
+      <button class="btn" id="collectBtn">Зібрати семантику</button><span id="collectMsg" class="muted"></span></div>
+      <p class="muted small" id="dfsHint"></p>
+    </div>
+    <div class="tabpane hidden" id="tab-file">
       <p class="muted small">Аркуші <b>ua</b> і <b>ru</b> (або колонка «Мова»). Колонки: <b>кластер</b>, <b>ключове слово</b>, <b>частотність</b>. Кластер можна вказати окремим рядком над ключами. <a href="/api/template.xlsx">Завантажити приклад</a></p>
       <label class="drop" id="drop"><input type="file" id="file" accept=".xlsx"><span id="fname">Перетягніть файл або натисніть, щоб обрати</span></label>
     </div>
@@ -45,8 +53,8 @@
         <label>RU<textarea id="text_ru" rows="8" placeholder="# SERM&#10;serm услуги; 150&#10;управление репутацией в интернете; 150"></textarea></label>
       </div>
     </div>
-    <button class="btn" id="parseBtn">Розібрати семантику</button>
-    <span id="parseMsg" class="muted"></span>
+    <div id="parseRow" class="hidden"><button class="btn" id="parseBtn">Розібрати семантику</button>
+    <span id="parseMsg" class="muted"></span></div>
   </div>
 
   <div class="card hidden" id="pagesCard">
@@ -77,6 +85,11 @@
 </aside>
 </main>
 
+<dialog id="kwDlg"><div class="dlg-head"><b>Ключі сторінки</b><button class="btn ghost small" onclick="kwDlg.close()">✕</button></div>
+  <div class="dlg-body"><p class="muted small">Формат: <code>ключ; частотність</code>, один на рядок. Порожнє поле — мова не потрібна.</p>
+  <div class="grid2"><label>Назва UA<input id="kwNameUa"></label><label>Назва RU<input id="kwNameRu"></label>
+  <label>UA<textarea id="kwUa" rows="14"></textarea></label><label>RU<textarea id="kwRu" rows="14"></textarea></label></div>
+  <button class="btn primary" id="kwSave">Зберегти</button></div></dialog>
 <dialog id="logDlg"><div class="dlg-head"><b id="logTitle"></b><button class="btn ghost small" onclick="logDlg.close()">✕</button></div><pre id="logBody"></pre></dialog>
 <script src="/static/app.js"></script>
 </body></html>

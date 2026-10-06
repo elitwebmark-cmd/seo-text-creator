@@ -13,34 +13,39 @@ def _client():
     return anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY, max_retries=3, timeout=600)
 
 
-def generate_tz(page: dict, project: dict, research: dict) -> dict:
-    if config.MOCK:
-        from .mock import mock_tz
-        return mock_tz(page)
-    prompt = build_user_prompt(page, project, research)
+def call_tool(system: str, prompt: str, tool: dict, max_tokens: int = 20000, check=None) -> dict:
+    """Виклик Claude з примусовим інструментом; повертає його input."""
     last = None
     for attempt in range(3):
         try:
             with _client().messages.stream(
                 model=config.ANTHROPIC_MODEL,
-                max_tokens=20000,
-                system=SYSTEM,
-                tools=[TOOL],
-                tool_choice={"type": "tool", "name": "submit_tz"},
+                max_tokens=max_tokens,
+                system=system,
+                tools=[tool],
+                tool_choice={"type": "tool", "name": tool["name"]},
                 messages=[{"role": "user", "content": prompt}],
             ) as stream:
                 msg = stream.get_final_message()
             for block in msg.content:
-                if block.type == "tool_use" and block.name == "submit_tz":
+                if block.type == "tool_use" and block.name == tool["name"]:
                     data = dict(block.input)
-                    if not data.get("blocks"):
-                        raise ValueError("Модель повернула порожню структуру")
-                    return normalize(data)
-            raise ValueError("Модель не повернула submit_tz")
+                    if check and not check(data):
+                        raise ValueError("Модель повернула неповну відповідь")
+                    return data
+            raise ValueError(f"Модель не повернула {tool['name']}")
         except (anthropic.APIStatusError, anthropic.APIConnectionError, ValueError) as e:
             last = e
             time.sleep(5 * (attempt + 1))
     raise RuntimeError(f"Claude API: {last}")
+
+
+def generate_tz(page: dict, project: dict, research: dict) -> dict:
+    if config.MOCK:
+        from .mock import mock_tz
+        return mock_tz(page)
+    data = call_tool(SYSTEM, build_user_prompt(page, project, research), TOOL, check=lambda d: bool(d.get("blocks")))
+    return normalize(data)
 
 
 def normalize(d: dict) -> dict:

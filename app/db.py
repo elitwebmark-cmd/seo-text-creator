@@ -53,13 +53,14 @@ def get(jid: str):
 def list_jobs(limit: int = 50):
     with _lock, _conn() as c:
         rows = c.execute(
-            "SELECT id, created, title, status, progress, files, error FROM jobs ORDER BY created DESC LIMIT ?",
+            "SELECT id, created, title, status, progress, files, error, params FROM jobs ORDER BY created DESC LIMIT ?",
             (limit,),
         ).fetchall()
     out = []
     for r in rows:
         d = dict(r)
         d["files"] = json.loads(d["files"] or "[]")
+        d["kind"] = (json.loads(d.pop("params") or "{}") or {}).get("kind", "tz")
         out.append(d)
     return out
 
