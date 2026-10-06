@@ -32,6 +32,12 @@ def authed(request: Request) -> bool:
         return False
 
 
+# версія статики для скидання кешу браузера після кожного деплою
+import hashlib as _h
+ASSET_V = _h.md5(b"".join((BASE / "static" / f).read_bytes() for f in ("app.js", "style.css"))).hexdigest()[:8]
+tpl.env.globals["v"] = ASSET_V
+
+
 @app.middleware("http")
 async def guard(request: Request, call_next):
     open_paths = ("/login", "/static", "/api/health")
@@ -39,7 +45,10 @@ async def guard(request: Request, call_next):
         if request.url.path.startswith("/api/"):
             return JSONResponse({"detail": "unauthorized"}, status_code=401)
         return RedirectResponse("/login")
-    return await call_next(request)
+    resp = await call_next(request)
+    if request.url.path.startswith("/static") or request.url.path == "/":
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
 
 
 @app.get("/login", response_class=HTMLResponse)

@@ -30,7 +30,7 @@ $('#parseBtn').onclick = async () => {
   fd.append('text_ua', $('#text_ua').value); fd.append('text_ru', $('#text_ru').value);
   $('#parseMsg').textContent = 'Розбираю…';
   const r = await fetch('/api/parse', {method: 'POST', body: fd});
-  const d = await r.json();
+  const d = await r.json().catch(() => ({detail: `Помилка сервера (HTTP ${r.status})`}));
   if (!r.ok) { $('#parseMsg').textContent = d.detail || 'Помилка'; return; }
   SEM = {ua: d.ua, ru: d.ru};
   $('#parseMsg').textContent = `Знайдено кластерів: UA — ${d.ua.length}, RU — ${d.ru.length}`;
@@ -101,9 +101,12 @@ $('#collectBtn').onclick = async () => {
   if (!entries.length) { $('#collectMsg').textContent = 'Вкажіть послугу або URL'; return; }
   const project = {domain: $('#domain').value.trim(), notes: $('#notes').value.trim()};
   $('#collectBtn').disabled = true; $('#collectMsg').textContent = 'Запускаю…';
-  const r = await fetch('/api/semantics', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({entries, langs, project})});
-  const d = await r.json(); $('#collectBtn').disabled = false;
-  $('#collectMsg').textContent = r.ok ? 'Збір запущено — прогрес праворуч. Коли буде готово, натисніть «Взяти в роботу».' : (d.detail || 'Помилка');
+  try {
+    const r = await fetch('/api/semantics', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({entries, langs, project})});
+    const d = await r.json().catch(() => ({detail: `Помилка сервера (HTTP ${r.status})`}));
+    $('#collectMsg').textContent = r.ok ? 'Збір запущено — прогрес праворуч. Коли буде готово, натисніть «Взяти в роботу».' : (d.detail || 'Помилка');
+  } catch (e) { $('#collectMsg').textContent = 'Немає зв’язку з сервером: ' + e.message; }
+  $('#collectBtn').disabled = false;
   loadJobs();
 };
 async function useSemantics(id) {
@@ -131,10 +134,12 @@ $('#genBtn').onclick = async () => {
   if (!formats.length) { $('#genMsg').textContent = 'Оберіть формат: Advanced або Base'; return; }
   const project = {domain: $('#domain').value.trim(), url_ru_pattern: $('#url_ru').value.trim(), url_ua_pattern: $('#url_ua').value.trim(), facts: $('#facts').value.trim(), notes: $('#notes').value.trim()};
   $('#genBtn').disabled = true; $('#genMsg').textContent = 'Запускаю…';
-  const r = await fetch('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title: $('#title').value.trim(), project, pages, formats})});
-  const d = await r.json();
+  try {
+    const r = await fetch('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title: $('#title').value.trim(), project, pages, formats})});
+    const d = await r.json().catch(() => ({detail: `Помилка сервера (HTTP ${r.status})`}));
+    $('#genMsg').textContent = r.ok ? `Задачу створено (${pages.length} стор.). Прогрес — праворуч.` : (d.detail || 'Помилка');
+  } catch (e) { $('#genMsg').textContent = 'Немає зв’язку з сервером: ' + e.message; }
   $('#genBtn').disabled = false;
-  $('#genMsg').textContent = r.ok ? `Задачу створено (${pages.length} стор.). Прогрес — праворуч.` : (d.detail || 'Помилка');
   loadJobs();
 };
 
