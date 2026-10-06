@@ -172,6 +172,7 @@ async function loadJobs() {
     <div class="files">${(j.files || []).map(f => `<a href="/api/jobs/${j.id}/files/${encodeURIComponent(f)}">⬇ ${esc(f)}</a>`).join('')}</div>
     ${j.error ? `<div class="err">${esc(j.error)}</div>` : ''}
     ${(j.kind === 'semantics' || j.kind === 'volumes') && (j.status === 'done' || j.status === 'partial') ? `<button class="btn small" onclick="useSemantics('${j.id}')">Взяти в роботу</button>` : ''}
+    ${(j.kind === 'tz') && (j.status === 'done' || j.status === 'partial') && !(j.files || []).some(f => f.endsWith('.docx')) ? `<button class="btn small" onclick="writeTexts('${j.id}')">Написати тексти</button>` : ''}
     <button class="btn ghost small" onclick="showLog('${j.id}')">Лог</button>
     <button class="btn ghost small" onclick="delJob('${j.id}')">Видалити</button></div>`).join('');
 }
@@ -180,6 +181,13 @@ async function showLog(id) {
   $('#logTitle').textContent = j.title;
   $('#logBody').textContent = (j.log || []).map(l => `${l.t}  ${l.m}`).join('\n');
   $('#logDlg').showModal();
+}
+async function writeTexts(id) {
+  if (!confirm('Написати SEO-тексти за всіма ТЗ цієї задачі? Це окремі виклики Claude (≈ $0.2–0.4 за текст).')) return;
+  const r = await fetch(`/api/jobs/${id}/texts`, {method: 'POST'});
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) alert(d.detail || 'Помилка');
+  loadJobs();
 }
 async function delJob(id) { if (!confirm('Видалити задачу зі списку?')) return; await fetch('/api/jobs/' + id, {method: 'DELETE'}); loadJobs(); }
 loadJobs(); setInterval(loadJobs, 4000);

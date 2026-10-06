@@ -75,3 +75,34 @@ def normalize(d: dict) -> dict:
     out["competitors"] = list(d.get("competitors", []))
     out["short"] = (out["short"] or out["name_ua"] or out["name_ru"] or "Сторінка")[:20]
     return out
+
+
+def call_text(system: str, prompt: str, max_tokens: int = 16000) -> str:
+    """Звичайна текстова відповідь Claude (для написання та редагування текстів)."""
+    last = None
+    for attempt in range(3):
+        try:
+            with _client().messages.stream(
+                model=config.ANTHROPIC_MODEL,
+                max_tokens=max_tokens,
+                system=system,
+                messages=[{"role": "user", "content": prompt}],
+            ) as stream:
+                msg = stream.get_final_message()
+            text = "".join(b.text for b in msg.content if b.type == "text").strip()
+            if len(text) < 200:
+                raise ValueError("Порожня відповідь моделі")
+            if msg.stop_reason == "max_tokens":
+                raise ValueError("Відповідь обрізано лімітом токенів")
+            return text
+        except anthropic.APIStatusError as e:
+            if e.status_code < 429 or e.status_code == 404:
+                body = getattr(e, "body", None) or {}
+                text = (body.get("error") or {}).get("message") if isinstance(body, dict) else None
+                raise RuntimeError(f"Claude API {e.status_code}: {text or e}") from None
+            last = e
+            time.sleep(5 * (attempt + 1))
+        except (anthropic.APIConnectionError, ValueError) as e:
+            last = e
+            time.sleep(5 * (attempt + 1))
+    raise RuntimeError(f"Claude API: {last}")

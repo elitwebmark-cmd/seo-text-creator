@@ -135,9 +135,73 @@ async def run_job(jid: str):
             fn = f"TZ_Base_{slug}.xlsx"
             await asyncio.to_thread(excel.build_base, items, outdir / fn)
             files.append(fn)
+    if items and "texts" in formats:
+        db.update(jid, files=files, progress=0.9)
+        files += await write_texts(jid, items, project, outdir, errors)
     status = "done" if items and not errors else ("partial" if items else "error")
     db.update(jid, status=status, progress=1.0, files=files, error="\n".join(errors))
     db.log(jid, "Завершено" if items else "Не вдалося згенерувати жодного ТЗ")
+
+
+async def write_texts(jid, items, project, outdir, errors):
+    """SEO-тексти для кожної сторінки × мови → Word."""
+    from . import docx_out, writer
+    sem = asyncio.Semaphore(max(1, config.PARALLEL_CLUSTERS))
+    tasks = [(it, l) for it in items for l in ("ua", "ru") if it["sem"].get(l)]
+    done = {"n": 0}
+    base = db.get(jid)["progress"] or 0
+
+    async def one(it, lang):
+        tz = it["tz"]
+        name = tz.get(f"name_{lang}") or tz.get("name_ua") or it["id"]
+        async with sem:
+            res = await writer.write_text(tz, lang, project, it.get("research"), lambda m: db.log(jid, f"[{it['id']} {name}] {m}"))
+        done["n"] += 1
+        db.update(jid, progress=round(base + (0.99 - base) * done["n"] / len(tasks), 3))
+        return {"id": it["id"], "title": name, "lang": lang, "url": tz.get(f"url_{lang}"), "title_tag": tz.get(f"title_{lang}"),
+                "desc": tz.get(f"desc_{lang}"), **res}
+
+    db.log(jid, f"Пишу SEO-тексти: {len(tasks)} шт.")
+    res = await asyncio.gather(*(one(it, l) for it, l in tasks), return_exceptions=True)
+    texts = []
+    for (it, l), r in zip(tasks, res):
+        if isinstance(r, Exception):
+            errors.append(f"Текст {it['id']} {l.upper()}: {r}")
+            db.log(jid, f"ПОМИЛКА тексту {it['id']} {l.upper()}: {r}")
+        else:
+            texts.append(r)
+            (outdir / f"text_{it['id']}_{l}.md").write_text(r["markdown"], encoding="utf-8")
+    if not texts:
+        return []
+    texts.sort(key=lambda t: (t["id"], t["lang"] != "ua"))
+    slug = (project.get("domain") or "texts").replace("https://", "").replace("/", "")[:40]
+    fn = f"Texts_{slug}.docx"
+    await asyncio.to_thread(docx_out.build, texts, outdir / fn)
+    bad = [f"{t['id']} {t['lang'].upper()}" for t in texts if t["report"]["issues"]]
+    db.log(jid, "Тексти готові" + (f"; потребують ручної перевірки: {', '.join(bad)}" if bad else ", усі пройшли перевірку"))
+    return [fn]
+
+
+async def run_texts_job(jid: str):
+    """Тексти за вже згенерованими ТЗ іншої задачі."""
+    import json as _json
+    params = db.get(jid)["params"]
+    src = config.DATA_DIR / "jobs" / params["source"]
+    src_job = db.get(params["source"]) or {}
+    project = (src_job.get("params") or {}).get("project", {})
+    items = [_json.loads(p.read_text(encoding="utf-8")) for p in sorted(src.glob("page_*.json"))]
+    for it in items:  # JSON перетворює кортежі на списки
+        it["tz"]["blocks"] = [tuple(b) for b in it["tz"]["blocks"]]
+    outdir = config.DATA_DIR / "jobs" / jid
+    outdir.mkdir(parents=True, exist_ok=True)
+    db.update(jid, status="running", progress=0.02)
+    if not items:
+        db.update(jid, status="error", progress=1.0, error="У вихідній задачі немає готових ТЗ")
+        return
+    errors = []
+    files = await write_texts(jid, items, project, outdir, errors)
+    status = "done" if files and not errors else ("partial" if files else "error")
+    db.update(jid, status=status, progress=1.0, files=files, error="\n".join(errors))
 
 
 async def run_volumes_job(jid: str):
@@ -192,7 +256,7 @@ def start(jid: str):
     def _runner():
         try:
             kind = (db.get(jid)["params"] or {}).get("kind", "tz")
-            runner = {"semantics": run_semantics_job, "volumes": run_volumes_job}.get(kind, run_job)
+            runner = {"semantics": run_semantics_job, "volumes": run_volumes_job, "texts": run_texts_job}.get(kind, run_job)
             asyncio.run(runner(jid))
         except Exception as e:  # noqa: BLE001
             db.update(jid, status="error", error=str(e))

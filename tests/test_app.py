@@ -116,3 +116,34 @@ def test_volumes_job_excel_format():
     assert rows[1][1] == "SERM" and rows[2][2] == "serm послуги" and rows[3][1] == "Локальне SEO"
     p = semantics.parse_xlsx(client.get(f"/api/jobs/{jid}/files/Semantics.xlsx").content)
     assert [c["name"] for c in p["ua"]] == ["SERM", "Локальне SEO"]
+
+
+def _wait(jid, n=80):
+    for _ in range(n):
+        j = client.get(f"/api/jobs/{jid}").json()
+        if j["status"] in ("done", "error", "partial"):
+            return j
+        time.sleep(0.3)
+    return j
+
+
+def test_tz_with_texts_and_texts_job():
+    import docx, io
+    body = {"project": {"domain": "elit-web.ua"}, "formats": ["base", "texts"],
+            "pages": [{"name_ua": "SERM", "name_ru": "SERM", "ua": [["serm послуги", 40]], "ru": [["serm услуги", 150]]}]}
+    j = _wait(client.post("/api/jobs", json=body).json()["id"])
+    assert j["status"] in ("done", "partial"), j
+    docs = [f for f in j["files"] if f.endswith(".docx")]
+    assert docs, j
+    d = docx.Document(io.BytesIO(client.get(f"/api/jobs/{j['id']}/files/{docs[0]}").content))
+    assert any(p.style.name.startswith("Heading") for p in d.paragraphs)
+    j2 = _wait(client.post(f"/api/jobs/{j['id']}/texts").json()["id"])
+    assert any(f.endswith(".docx") for f in j2["files"]), j2
+
+
+def test_checker_finds_problems():
+    from app import writer, prompts, llm
+    tz = llm.normalize(prompts.EXAMPLE)
+    md = "# Неправильний заголовок\n\nКороткий текст."
+    rep = writer.check(md, tz, "ua")
+    assert not rep["ok"] and any("обсяг" in x.lower() for x in rep["issues"]) and any("Немає заголовка" in x for x in rep["issues"])

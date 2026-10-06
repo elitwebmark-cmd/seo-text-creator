@@ -145,7 +145,7 @@ def create_job(body: JobIn):
             pages.append(d)
     if not pages:
         raise HTTPException(400, "Немає жодної сторінки з ключами")
-    formats = [f for f in body.formats if f in ("advanced", "base")] or ["advanced"]
+    formats = [f for f in body.formats if f in ("advanced", "base", "texts")] or ["advanced"]
     if not config.MOCK:
         missing = [n for n, v in (("ANTHROPIC_API_KEY", config.ANTHROPIC_API_KEY), ("SERPER_API_KEY", config.SERPER_API_KEY)) if not v]
         if missing:
@@ -176,6 +176,18 @@ def collect_semantics(body: SemIn):
     jid = db.create(title, {"kind": "semantics", "entries": entries, "langs": langs, "project": body.project})
     pipeline.start(jid)
     return {"id": jid}
+
+
+@app.post("/api/jobs/{jid}/texts")
+def texts_job(jid: str):
+    src = db.get(jid)
+    if not src or not list((config.DATA_DIR / "jobs" / jid).glob("page_*.json")):
+        raise HTTPException(404, "У цій задачі немає готових ТЗ")
+    if not config.MOCK and not config.ANTHROPIC_API_KEY:
+        raise HTTPException(400, "На сервері не задано ANTHROPIC_API_KEY")
+    new = db.create("Тексти: " + src["title"], {"kind": "texts", "source": jid})
+    pipeline.start(new)
+    return {"id": new}
 
 
 @app.post("/api/volumes")
