@@ -34,7 +34,15 @@ def call_tool(system: str, prompt: str, tool: dict, max_tokens: int = 20000, che
                         raise ValueError("Модель повернула неповну відповідь")
                     return data
             raise ValueError(f"Модель не повернула {tool['name']}")
-        except (anthropic.APIStatusError, anthropic.APIConnectionError, ValueError) as e:
+        except anthropic.APIStatusError as e:
+            # 400/401/403 (баланс, ключ, доступ до моделі) — повтор не допоможе
+            if e.status_code < 429 or e.status_code == 404:
+                msg = getattr(e, "body", None) or {}
+                text = (msg.get("error") or {}).get("message") if isinstance(msg, dict) else None
+                raise RuntimeError(f"Claude API {e.status_code}: {text or e}") from None
+            last = e
+            time.sleep(5 * (attempt + 1))
+        except (anthropic.APIConnectionError, ValueError) as e:
             last = e
             time.sleep(5 * (attempt + 1))
     raise RuntimeError(f"Claude API: {last}")
