@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SEO ТЗ генератор</title><link rel="stylesheet" href="/static/style.css"></head>
+<body>
+<header class="top">
+  <div class="brand">SEO ТЗ генератор <span class="muted">аналіз ТОПу → ТЗ копірайтеру</span></div>
+  <div class="top-right">
+    {% if mock %}<span class="badge warn">MOCK-режим</span>{% endif %}
+    <span id="health" class="muted"></span>
+    {% if auth %}<a href="/logout" class="muted">Вийти</a>{% endif %}
+  </div>
+</header>
+
+<main class="layout">
+<section class="col-main">
+
+  <div class="card">
+    <h2><span class="step">1</span> Проєкт</h2>
+    <div class="grid2">
+      <label>Домен сайту<input id="domain" placeholder="elit-web.ua"></label>
+      <label>Назва задачі (необов’язково)<input id="title" placeholder="Нові послуги, жовтень"></label>
+      <label>Шаблон URL RU<input id="url_ru" placeholder="/{slug}"></label>
+      <label>Шаблон URL UA<input id="url_ua" placeholder="/ua/{slug}"></label>
+    </div>
+    <label>Факти про компанію (можна згадувати в ТЗ)
+      <textarea id="facts" rows="3" placeholder="Понад 12 років досвіду; 5.0 на Clutch (81 відгук); клієнти: АТБ, Sportlife…; телефон 0 800 759 750"></textarea></label>
+    <label>Додаткові вимоги до ТЗ
+      <textarea id="notes" rows="2" placeholder="Напр.: сторінки будуть на шаблоні послуги; ціни не вказувати; акцент на B2B"></textarea></label>
+  </div>
+
+  <div class="card">
+    <h2><span class="step">2</span> Семантика</h2>
+    <div class="tabs">
+      <button class="tab active" data-tab="file">Файл xlsx</button>
+      <button class="tab" data-tab="text">Вставити текстом</button>
+    </div>
+    <div class="tabpane" id="tab-file">
+      <p class="muted small">Аркуші <b>ua</b> і <b>ru</b> (або колонка «Мова»). Колонки: <b>кластер</b>, <b>ключове слово</b>, <b>частотність</b>. Кластер можна вказати окремим рядком над ключами. <a href="/api/template.xlsx">Завантажити приклад</a></p>
+      <label class="drop" id="drop"><input type="file" id="file" accept=".xlsx"><span id="fname">Перетягніть файл або натисніть, щоб обрати</span></label>
+    </div>
+    <div class="tabpane hidden" id="tab-text">
+      <p class="muted small">Рядок з <b>#</b> — назва кластера, далі ключі: <code>ключ; частотність</code></p>
+      <div class="grid2">
+        <label>UA<textarea id="text_ua" rows="8" placeholder="# SERM&#10;serm послуги; 40&#10;управління репутацією в інтернеті; 30"></textarea></label>
+        <label>RU<textarea id="text_ru" rows="8" placeholder="# SERM&#10;serm услуги; 150&#10;управление репутацией в интернете; 150"></textarea></label>
+      </div>
+    </div>
+    <button class="btn" id="parseBtn">Розібрати семантику</button>
+    <span id="parseMsg" class="muted"></span>
+  </div>
+
+  <div class="card hidden" id="pagesCard">
+    <h2><span class="step">3</span> Сторінки <span class="muted small">— пари UA ↔ RU підібрано автоматично, перевірте</span></h2>
+    <div class="table-wrap"><table id="pagesTbl">
+      <thead><tr><th><input type="checkbox" id="checkAll" checked></th><th>#</th><th>Кластер UA</th><th>Кластер RU</th><th>Ключі</th><th>Примітка до сторінки</th></tr></thead>
+      <tbody></tbody>
+    </table></div>
+    <button class="btn ghost small" id="addPage">+ Додати сторінку</button>
+  </div>
+
+  <div class="card hidden" id="genCard">
+    <h2><span class="step">4</span> Формат і генерація</h2>
+    <div class="formats">
+      <label class="fmt"><input type="checkbox" value="advanced" checked> <b>Advanced</b><span class="muted small">Детальне ТЗ: мета, інтент, аналіз ТОПу, структура, ключі + LSI, семантика, зведення</span></label>
+      <label class="fmt"><input type="checkbox" value="base" checked> <b>Base</b><span class="muted small">Як у прикладі: структура з коментарями, ключі з частотою</span></label>
+    </div>
+    <button class="btn primary" id="genBtn">Згенерувати ТЗ</button>
+    <span id="genMsg" class="muted"></span>
+  </div>
+</section>
+
+<aside class="col-side">
+  <div class="card">
+    <h2>Задачі</h2>
+    <div id="jobs"><p class="muted small">Поки порожньо</p></div>
+  </div>
+</aside>
+</main>
+
+<dialog id="logDlg"><div class="dlg-head"><b id="logTitle"></b><button class="btn ghost small" onclick="logDlg.close()">✕</button></div><pre id="logBody"></pre></dialog>
+<script src="/static/app.js"></script>
+</body></html>
