@@ -197,7 +197,8 @@ def semantics_xlsx(results: list[dict], path):
     from openpyxl.styles import Font
     wb = openpyxl.Workbook()
     wb.remove(wb.active)
-    for lang in ("ua", "ru"):
+    langs = [l for l in ("ua", "ru") if any(p.get(l) for r in results for p in r["pages"])] or ["ua"]
+    for lang in langs:
         ws = wb.create_sheet(lang)
         ws.append([None, "кластер", "Ключове слово", "Частотність", "Мова"])
         for c in ws[1]:
@@ -212,11 +213,12 @@ def semantics_xlsx(results: list[dict], path):
                     ws.append([None, None, k, v, lang.upper()])
         ws.column_dimensions["B"].width = 34
         ws.column_dimensions["C"].width = 48
-        q = wb.create_sheet(f"питання {lang}")
-        q.append(["Сторінка", "Питання з «Люди також питають»"])
-        for r in results:
-            for x in r.get("questions", {}).get(lang, []):
-                q.append([r["entry"], x])
+        qs = [(r["entry"], x) for r in results for x in r.get("questions", {}).get(lang, [])]
+        if qs:
+            q = wb.create_sheet(f"питання {lang}")
+            q.append(["Сторінка", "Питання з «Люди також питають»"])
+            for row in qs:
+                q.append(list(row))
     wb.save(path)
 
 

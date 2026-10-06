@@ -140,6 +140,27 @@ async def run_job(jid: str):
     db.log(jid, "Завершено" if items else "Не вдалося згенерувати жодного ТЗ")
 
 
+async def run_volumes_job(jid: str):
+    """Лише частотність для готових кластерів → Semantics.xlsx у форматі «кластер / ключ / частотність»."""
+    from . import collect
+    pages = db.get(jid)["params"]["pages"]
+    outdir = config.DATA_DIR / "jobs" / jid
+    outdir.mkdir(parents=True, exist_ok=True)
+    db.update(jid, status="running", progress=0.1)
+    n = sum(len(p.get(l) or []) for p in pages for l in ("ua", "ru"))
+    db.log(jid, f"Частотність: {len(pages)} кластерів, {n} ключів")
+    await fill_missing_volumes(jid, pages)
+    results = [{"entry": p.get("name_ua") or p.get("name_ru"), "questions": {},
+                "pages": [{"name_ua": p.get("name_ua") or p.get("name_ru"), "name_ru": p.get("name_ru") or p.get("name_ua"),
+                           "ua": p.get("ua") or [], "ru": p.get("ru") or [], "main": True}]} for p in pages]
+    (outdir / "semantics.json").write_text(collect.dumps(results), encoding="utf-8")
+    await asyncio.to_thread(collect.semantics_xlsx, results, outdir / "Semantics.xlsx")
+    left = sum(1 for p in pages for l in ("ua", "ru") for _, v in (p.get(l) or []) if v is None)
+    db.update(jid, status="done" if not left else "partial", progress=1.0, files=["Semantics.xlsx"],
+              error=f"Без частотності лишилось ключів: {left}" if left else "")
+    db.log(jid, "Готово. Кластери — на аркушах ua / ru, як у вихідному файлі.")
+
+
 async def run_semantics_job(jid: str):
     from . import collect
     job = db.get(jid)
@@ -171,7 +192,8 @@ def start(jid: str):
     def _runner():
         try:
             kind = (db.get(jid)["params"] or {}).get("kind", "tz")
-            asyncio.run(run_semantics_job(jid) if kind == "semantics" else run_job(jid))
+            runner = {"semantics": run_semantics_job, "volumes": run_volumes_job}.get(kind, run_job)
+            asyncio.run(runner(jid))
         except Exception as e:  # noqa: BLE001
             db.update(jid, status="error", error=str(e))
             db.log(jid, "Фатальна помилка: " + "".join(traceback.format_exception_only(type(e), e)))

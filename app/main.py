@@ -178,6 +178,23 @@ def collect_semantics(body: SemIn):
     return {"id": jid}
 
 
+@app.post("/api/volumes")
+def volumes_job(body: JobIn):
+    pages = []
+    for p in body.pages:
+        d = p.model_dump()
+        for l in ("ua", "ru"):
+            d[l] = [(str(k), semantics._vol(v)) for k, v in d[l] if str(k).strip()]
+        if d["ua"] or d["ru"]:
+            pages.append(d)
+    if not pages:
+        raise HTTPException(400, "Немає жодного кластера з ключами")
+    title = body.title or f"Частотність: {len(pages)} кластерів"
+    jid = db.create(title, {"kind": "volumes", "pages": pages})
+    pipeline.start(jid)
+    return {"id": jid}
+
+
 @app.get("/api/jobs/{jid}/semantics")
 def job_semantics(jid: str):
     from . import collect

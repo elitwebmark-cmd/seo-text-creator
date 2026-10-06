@@ -97,3 +97,22 @@ def test_volume_cache(monkeypatch):
     from app import db
     db.save_volumes({"тест кеш": 40}, "ua")
     assert db.cached_volumes(["тест кеш", "інший"], "ua", 90) == {"тест кеш": 40}
+
+
+def test_volumes_job_excel_format():
+    import openpyxl, io
+    body = {"pages": [{"name_ua": "SERM", "name_ru": "SERM", "ua": [["serm послуги", 40]], "ru": [["serm услуги", None]]},
+                      {"name_ua": "Локальне SEO", "ua": [["локальне seo", 100]]}]}
+    jid = client.post("/api/volumes", json=body).json()["id"]
+    for _ in range(40):
+        j = client.get(f"/api/jobs/{jid}").json()
+        if j["status"] in ("done", "error", "partial"):
+            break
+        time.sleep(0.3)
+    assert j["files"] == ["Semantics.xlsx"], j
+    wb = openpyxl.load_workbook(io.BytesIO(client.get(f"/api/jobs/{jid}/files/Semantics.xlsx").content))
+    assert wb.sheetnames == ["ua", "ru"]
+    rows = [r for r in wb["ua"].iter_rows(values_only=True)]
+    assert rows[1][1] == "SERM" and rows[2][2] == "serm послуги" and rows[3][1] == "Локальне SEO"
+    p = semantics.parse_xlsx(client.get(f"/api/jobs/{jid}/files/Semantics.xlsx").content)
+    assert [c["name"] for c in p["ua"]] == ["SERM", "Локальне SEO"]

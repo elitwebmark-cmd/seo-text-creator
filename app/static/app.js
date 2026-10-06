@@ -123,7 +123,7 @@ async function useSemantics(id) {
 }
 $('#checkAll').onchange = e => document.querySelectorAll('.inc').forEach(c => c.checked = e.target.checked);
 
-$('#genBtn').onclick = async () => {
+function selectedPages() {
   const pages = [];
   document.querySelectorAll('#pagesTbl tbody tr').forEach(tr => {
     if (!tr.querySelector('.inc').checked) return;
@@ -131,6 +131,21 @@ $('#genBtn').onclick = async () => {
     if (!u && !r) return;
     pages.push({name_ua: u?.name || '', name_ru: r?.name || '', ua: u?.keywords || [], ru: r?.keywords || [], notes: tr.querySelector('.pnote').value});
   });
+  return pages;
+}
+$('#volBtn').onclick = async () => {
+  const pages = selectedPages();
+  if (!pages.length) { $('#volMsg').textContent = 'Оберіть хоча б один кластер'; return; }
+  $('#volBtn').disabled = true; $('#volMsg').textContent = 'Запускаю…';
+  try {
+    const r = await fetch('/api/volumes', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({pages, title: $('#title').value.trim()})});
+    const d = await r.json().catch(() => ({detail: `Помилка сервера (HTTP ${r.status})`}));
+    $('#volMsg').textContent = r.ok ? 'Запущено — файл з’явиться праворуч.' : (d.detail || 'Помилка');
+  } catch (e) { $('#volMsg').textContent = 'Немає зв’язку з сервером: ' + e.message; }
+  $('#volBtn').disabled = false; loadJobs();
+};
+$('#genBtn').onclick = async () => {
+  const pages = selectedPages();
   const formats = [...document.querySelectorAll('.fmt input:checked')].map(x => x.value);
   if (!pages.length) { $('#genMsg').textContent = 'Оберіть хоча б одну сторінку'; return; }
   if (!formats.length) { $('#genMsg').textContent = 'Оберіть формат: Advanced або Base'; return; }
@@ -156,7 +171,7 @@ async function loadJobs() {
     <div class="bar"><i style="width:${Math.round(j.progress * 100)}%"></i></div>
     <div class="files">${(j.files || []).map(f => `<a href="/api/jobs/${j.id}/files/${encodeURIComponent(f)}">⬇ ${esc(f)}</a>`).join('')}</div>
     ${j.error ? `<div class="err">${esc(j.error)}</div>` : ''}
-    ${j.kind === 'semantics' && (j.status === 'done' || j.status === 'partial') ? `<button class="btn small" onclick="useSemantics('${j.id}')">Взяти в роботу</button>` : ''}
+    ${(j.kind === 'semantics' || j.kind === 'volumes') && (j.status === 'done' || j.status === 'partial') ? `<button class="btn small" onclick="useSemantics('${j.id}')">Взяти в роботу</button>` : ''}
     <button class="btn ghost small" onclick="showLog('${j.id}')">Лог</button>
     <button class="btn ghost small" onclick="delJob('${j.id}')">Видалити</button></div>`).join('');
 }
