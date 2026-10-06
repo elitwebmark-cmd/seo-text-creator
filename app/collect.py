@@ -115,6 +115,8 @@ async def collect_one(entry: str, langs: list[str], project: dict, log) -> dict:
             except Exception as e:  # noqa: BLE001
                 log(f"видача за «{s}»: {e}")
         questions[lang] = list(dict.fromkeys(qs))
+        if not (volumes.dfs_enabled() or config.MOCK):
+            log("DataForSEO вимкнено (не задано логін/пароль) — частотність не збирається")
         if volumes.dfs_enabled() or config.MOCK:
             try:
                 log(f"{lang.upper()}: ідеї Google Ads")
@@ -128,6 +130,7 @@ async def collect_one(entry: str, langs: list[str], project: dict, log) -> dict:
             try:
                 log(f"{lang.upper()}: частотність для {len(missing)} ключів")
                 vols = await volumes.search_volume(missing, lang)
+                log(f"{lang.upper()}: DataForSEO повернув частотність для {sum(1 for v in vols.values() if v)} з {len(missing)} ключів")
                 for k in missing:
                     if k in vols:
                         pool[k] = vols[k]

@@ -77,6 +77,12 @@ def index(request: Request):
     return tpl.TemplateResponse(request, "index.html", {"mock": config.MOCK, "auth": bool(config.APP_PASSWORD)})
 
 
+@app.get("/api/diag")
+async def diag():
+    from . import volumes
+    return {"dataforseo": await volumes.diagnose()}
+
+
 @app.get("/api/health")
 def health():
     return {

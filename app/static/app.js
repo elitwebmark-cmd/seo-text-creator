@@ -166,3 +166,17 @@ async function showLog(id) {
 }
 async function delJob(id) { if (!confirm('Видалити задачу зі списку?')) return; await fetch('/api/jobs/' + id, {method: 'DELETE'}); loadJobs(); }
 loadJobs(); setInterval(loadJobs, 4000);
+
+$('#diagBtn').onclick = async () => {
+  const box = $('#diagOut'); box.classList.remove('hidden'); box.textContent = 'Перевіряю…';
+  try {
+    const d = (await (await fetch('/api/diag')).json()).dataforseo;
+    const lines = [];
+    lines.push('Змінні задані: ' + (d.configured ? 'так' : 'ні') + (d.login ? ` (логін ${d.login})` : ''));
+    if (d.auth_status) lines.push('Авторизація: ' + d.auth_status + (d.auth_http ? ` [HTTP ${d.auth_http}]` : ''));
+    if (d.balance !== undefined && d.balance !== null) lines.push('Баланс: $' + d.balance);
+    if (d.test_volume) lines.push('Тест «seo просування» (UA): ' + JSON.stringify(d.test_volume));
+    if (d.error) lines.push('ПОМИЛКА: ' + d.error);
+    box.textContent = lines.join('\n');
+  } catch (e) { box.textContent = 'Не вдалося перевірити: ' + e.message; }
+};

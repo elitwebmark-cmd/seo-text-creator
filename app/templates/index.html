@@ -40,7 +40,8 @@
       <label>Послуги / URL<textarea id="entries" rows="4" placeholder="SERM — управління репутацією в інтернеті&#10;https://competitor.ua/services/lokalnoe-seo/"></textarea></label>
       <div class="row-inline"><label class="chk"><input type="checkbox" class="lang" value="ua" checked> UA</label><label class="chk"><input type="checkbox" class="lang" value="ru" checked> RU</label>
       <button class="btn" id="collectBtn">Зібрати семантику</button><span id="collectMsg" class="muted"></span></div>
-      <p class="muted small" id="dfsHint"></p>
+      <p class="muted small"><span id="dfsHint"></span> <button class="btn ghost small" id="diagBtn" type="button">Перевірити DataForSEO</button></p>
+      <pre id="diagOut" class="notes hidden"></pre>
     </div>
     <div class="tabpane hidden" id="tab-file">
       <p class="muted small">Аркуші <b>ua</b> і <b>ru</b> (або колонка «Мова»). Колонки: <b>кластер</b>, <b>ключове слово</b>, <b>частотність</b>. Кластер можна вказати окремим рядком над ключами. <a href="/api/template.xlsx">Завантажити приклад</a></p>

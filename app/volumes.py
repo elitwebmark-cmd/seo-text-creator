@@ -25,12 +25,42 @@ def _clean(kws):
 async def _dfs(endpoint: str, payload: dict) -> list:
     async with httpx.AsyncClient(timeout=90, auth=(config.DATAFORSEO_LOGIN, config.DATAFORSEO_PASSWORD)) as cl:
         r = await cl.post(f"{DFS}/{endpoint}/live", json=[payload])
-        r.raise_for_status()
+    try:
         data = r.json()
+    except ValueError:
+        raise RuntimeError(f"DataForSEO HTTP {r.status_code}: {r.text[:200]}")
+    if r.status_code >= 400 or data.get("status_code") not in (20000, None):
+        raise RuntimeError(f"DataForSEO {data.get('status_code', r.status_code)}: {data.get('status_message', r.text[:200])}")
     task = (data.get("tasks") or [{}])[0]
     if task.get("status_code") not in (20000, None):
-        raise RuntimeError(f"DataForSEO: {task.get('status_message')}")
+        raise RuntimeError(f"DataForSEO {task.get('status_code')}: {task.get('status_message')}")
     return task.get("result") or []
+
+
+async def diagnose() -> dict:
+    """Перевірка доступу: безкоштовний user_data + 1 ключ у search_volume."""
+    out = {"configured": bool(config.DATAFORSEO_LOGIN and config.DATAFORSEO_PASSWORD),
+           "login": (config.DATAFORSEO_LOGIN[:3] + "…" + config.DATAFORSEO_LOGIN[-8:]) if config.DATAFORSEO_LOGIN else ""}
+    if not out["configured"]:
+        out["error"] = "Не задано DATAFORSEO_LOGIN / DATAFORSEO_PASSWORD (або сервіс не перезапущено після додавання змінних)"
+        return out
+    try:
+        async with httpx.AsyncClient(timeout=30, auth=(config.DATAFORSEO_LOGIN, config.DATAFORSEO_PASSWORD)) as cl:
+            r = await cl.get("https://api.dataforseo.com/v3/appendix/user_data")
+        d = r.json() if "json" in r.headers.get("content-type", "") else {}
+        out["auth_http"] = r.status_code
+        out["auth_status"] = f"{d.get('status_code')} {d.get('status_message')}"
+        res = ((d.get("tasks") or [{}])[0].get("result") or [{}])[0] or {}
+        out["balance"] = (res.get("money") or {}).get("balance")
+    except Exception as e:  # noqa: BLE001
+        out["error"] = f"user_data: {e}"
+        return out
+    try:
+        vol = await search_volume(["seo просування"], "ua")
+        out["test_volume"] = vol
+    except Exception as e:  # noqa: BLE001
+        out["error"] = f"search_volume: {e}"
+    return out
 
 
 async def search_volume(keywords: list[str], lang: str) -> dict[str, int]:

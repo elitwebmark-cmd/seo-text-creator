@@ -2,6 +2,11 @@ import os
 from pathlib import Path
 
 
+def _env(name: str, default: str = "") -> str:
+    """Значення змінної без пробілів і лапок (часта помилка при копіюванні в Railway)."""
+    return os.getenv(name, default).strip().strip('"').strip("'").strip()
+
+
 def _int(name: str, default: int) -> int:
     try:
         return int(os.getenv(name, default))
@@ -9,10 +14,10 @@ def _int(name: str, default: int) -> int:
         return default
 
 
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5")
-SERPER_API_KEY = os.getenv("SERPER_API_KEY", "")
-APP_PASSWORD = os.getenv("APP_PASSWORD", "")
+ANTHROPIC_API_KEY = _env("ANTHROPIC_API_KEY")
+ANTHROPIC_MODEL = _env("ANTHROPIC_MODEL", "claude-sonnet-4-5")
+SERPER_API_KEY = _env("SERPER_API_KEY")
+APP_PASSWORD = _env("APP_PASSWORD")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 MAX_COMPETITORS = _int("MAX_COMPETITORS", 6)
@@ -31,6 +36,6 @@ SKIP_DOMAINS = {
     "dou.ua", "pinterest.com", "quora.com",
 }
 
-DATAFORSEO_LOGIN = os.getenv("DATAFORSEO_LOGIN", "")
-DATAFORSEO_PASSWORD = os.getenv("DATAFORSEO_PASSWORD", "")
+DATAFORSEO_LOGIN = _env("DATAFORSEO_LOGIN")
+DATAFORSEO_PASSWORD = _env("DATAFORSEO_PASSWORD")
 UA_LOCATION_CODE = 2804  # Україна в Google Ads / DataForSEO
