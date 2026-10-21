@@ -147,17 +147,37 @@ async def run_job(jid: str):
 async def write_texts(jid, items, project, outdir, errors):
     """SEO-тексти для кожної сторінки × мови → Word."""
     from . import docx_out, writer
+    from . import styles as writer_styles
     sem = asyncio.Semaphore(max(1, config.PARALLEL_CLUSTERS))
     tasks = [(it, l) for it in items for l in ("ua", "ru") if it["sem"].get(l)]
     done = {"n": 0}
     base = db.get(jid)["progress"] or 0
 
+    fact_tasks = {}
+
+    async def get_facts(it, style):
+        from . import facts as facts_mod
+        if it["id"] not in fact_tasks:
+            async def run():
+                name = it["tz"].get("name_ua") or it["tz"].get("name_ru") or it["id"]
+                try:
+                    res = await facts_mod.research(it["tz"], style, project, lambda m: db.log(jid, f"[{it['id']} {name}] {m}"))
+                except Exception as e:  # noqa: BLE001
+                    db.log(jid, f"[{it['id']} {name}] факти: пошук не вдався ({e}) — текст буде без статистики")
+                    res = []
+                (outdir / f"facts_{it['id']}.json").write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+                return res
+            fact_tasks[it["id"]] = asyncio.ensure_future(run())
+        return await fact_tasks[it["id"]]
+
     async def one(it, lang):
         tz = it["tz"]
         name = tz.get(f"name_{lang}") or tz.get("name_ua") or it["id"]
+        style = writer_styles.resolve(it.get("style") or project.get("text_style") or "default", tz)
         async with sem:
+            facts = await get_facts(it, style)
             res = await writer.write_text(tz, lang, project, it.get("research"), lambda m: db.log(jid, f"[{it['id']} {name}] {m}"),
-                                          style=it.get("style") or project.get("text_style") or "default")
+                                          style=style, facts=facts)
         done["n"] += 1
         db.update(jid, progress=round(base + (0.99 - base) * done["n"] / len(tasks), 3))
         return {"id": it["id"], "title": name, "lang": lang, "url": tz.get(f"url_{lang}"), "title_tag": tz.get(f"title_{lang}"),

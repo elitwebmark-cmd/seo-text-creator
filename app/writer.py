@@ -21,28 +21,35 @@ WRITER_SYS = """Ти — досвідчений SEO-копірайтер і ре
    Пріоритети, якщо вимоги конфліктують: структура → загальний обсяг → ключі → LSI (нижні межі LSI — бажані, верхні — обов’язкові).
 5. Мова: пиши {lang_name}, природно, як носій мови; без кальок, русизмів/суржику (для UA), без канцеляризмів і «води». Короткі абзаци (до 3–4 речень). Тон — експертний, від імені компанії («ми»), звернення до читача на «ви»/«вы». Якщо в ТЗ є розділ «Стиль і тональність» — тон, ритм, лексику і прийоми бери з нього (він важливіший за тон еталона), але вимоги ТЗ (структура, обсяги, ключі) не порушуй.
 6. ГРАМОТНІСТЬ: жодних орфографічних, пунктуаційних, граматичних, стилістичних і смислових помилок. Узгодження слів, правильні відмінки, апострофи (UA), лапки «ялинки», тире — між частинами речення.
-7. ФАКТИ: використовуй лише факти про компанію з блоку «Про компанію». НЕ вигадуй ціни, кейси, цифри клієнта, імена, сертифікати, партнерства, гарантії, нові зобов’язання. Де ТЗ просить дані «УТОЧНИТИ» — став плейсхолдер у квадратних дужках: «[уточнити: вартість пакетів]». Ціни ринку й назви конкурентів у текст не переносити. Загальновідомі факти можна, умовні приклади розрахунків позначай як умовні.
+7. ФАКТИ І ЦИФРИ: про компанію — лише факти з блоку «Про компанію». Статистика ринку, досліджень, платформ — ЛИШЕ з розділу «Перевірені факти», з посиланням на джерело (markdown-посилання). Інших статистичних цифр, відсотків і «даних досліджень» з пам'яті НЕ пиши. Дозволені також числа з ТЗ, з «Про компанію» та умовні розрахунки з позначкою «умовно» / «для прикладу». НЕ вигадуй ціни, кейси, цифри клієнта, імена, сертифікати, партнерства, гарантії, терміни, нові зобов’язання. Ціни ринку й назви конкурентів у текст не переносити.
+   ТЕКСТ ГОТОВИЙ ДО ПУБЛІКАЦІЇ: жодних плейсхолдерів, квадратних дужок «[уточнити…]», TODO, «XX». Якщо ТЗ просить даних, яких немає (ціни, терміни, кейси, кількість клієнтів), напиши цей фрагмент без конкретних чисел, але корисно й чесно: від чого залежить вартість, що входить у роботу, як визначаються терміни, що клієнт отримає на виході.
 8. CTA: текст за коментарем, потім окремим рядком кнопка: **[Текст кнопки]**.
 9. FAQ: кожне питання — ### H3, відповідь 250–400 знаків, по суті, без повтору тексту вище.
-10. Без емодзі. Таблиці — у markdown.
+10. Без емодзі. Таблиці — у markdown. Жодних заголовків, яких немає в ТЗ (структуру всередині розділу роби абзацами, списками, таблицями, **жирними** підзаголовками-фразами).
+11. Посилання — лише на URL із «Перевірених фактів», у форматі [назва джерела](URL).
 
 ФОРМАТ ВІДПОВІДІ: лише markdown-текст сторінки, без пояснень. # — H1, ## — H2 (а також «## CTA», «## FAQ»), ### — H3 і питання FAQ.
 
 ЕТАЛОН РІВНЯ (інша сторінка, інша компанія — НЕ копіюй факти, бери лише рівень якості, тон, щільність і форматування):
 """ + REFERENCE
 
-EDITOR_SYS = """Ти — шеф-редактор і коректор. Тобі дано ТЗ, текст і звіт автоматичної перевірки. Поверни ВИПРАВЛЕНИЙ ПОВНИЙ текст сторінки в markdown (без пояснень), який:
-- виправляє ВСІ проблеми зі звіту (обсяг, заголовки, кількість ключів/LSI, довжина відповідей FAQ, орфографія);
-- не має орфографічних, граматичних, пунктуаційних, стилістичних і смислових помилок; мова — природна {lang_name};
-- зберігає структуру і дослівні заголовки з ТЗ, факти й плейсхолдери [уточнити], не додає вигаданих фактів;
-- тримає стиль і тональність із розділу «Стиль і тональність» (якщо він є): тон, довжина речень, лексика, фірмові прийоми; прибирає AI-штампи;
-- не погіршує текст: якщо пункт звіту — хибна тривога (наприклад, LanguageTool помиляється щодо терміна), залиш як є.
+EDITOR_SYS = """Ти — шеф-редактор і коректор. Тобі дано ТЗ, текст і звіт перевірки (автоматика + аудит відповідності ТЗ). Поверни ВИПРАВЛЕНИЙ ПОВНИЙ текст сторінки в markdown (без пояснень).
+ЯК ПРАЦЮВАТИ:
+- Виправляй ТОЧКОВО: змінюй лише речення й абзаци, яких стосуються пункти звіту. Решту тексту залиш дослівно — не переписуй те, що вже правильно, щоб не з'явилися нові помилки.
+- Виправ УСІ пункти звіту: обсяг, заголовки, ключі/LSI, FAQ, невиконані вимоги коментарів ТЗ, смислові й фактичні помилки, неперевірені цифри, плейсхолдери, орфографію.
+- Структура: усі заголовки ТЗ дослівно і в тому самому порядку; заголовків, яких немає в ТЗ, бути не повинно.
+- Цифри статистики — лише з «Перевірених фактів» і з посиланням; неперевірену цифру прибери (переформулюй думку без числа). Факти про компанію — лише з «Про компанію».
+- Жодних плейсхолдерів і квадратних дужок «[уточнити…]»: замість них — коректне формулювання без вигаданих даних.
+- Посилання [джерело](URL) і кнопку CTA **[…]** збережи.
+- Мова — природна {lang_name}, без орфографічних, граматичних, пунктуаційних, стилістичних і смислових помилок, без суржику й кальок.
+- Тримай стиль і тональність із розділу «Стиль і тональність» (якщо він є); прибирай AI-штампи.
+- Якщо пункт LanguageTool — хибна тривога (термін, бренд), залиш як є.
 Якщо треба скоротити — прибирай «воду», а не зміст. Якщо треба додати — додавай корисну конкретику, а не повтори.
-Пріоритети: структура → загальний обсяг і обсяги розділів → ключі → верхні межі LSI → нижні межі LSI."""
+Пріоритети: структура і вимоги ТЗ → факти і смисл → загальний обсяг і обсяги розділів → ключі → верхні межі LSI → нижні межі LSI."""
 
 
 # ---------------------------------------------------------------- ТЗ → текст для промпту
-def tz_brief(tz: dict, lang: str, project: dict, research: dict | None = None, style: str = "default") -> str:
+def tz_brief(tz: dict, lang: str, project: dict, research: dict | None = None, style: str = "default", facts: list | None = None) -> str:
     L = 0 if lang == "ru" else 1
     out = [f"## ТЗ ({lang.upper()}-версія): {tz.get('name_' + lang) or tz.get('name_ua')}",
            f"Загальний обсяг: {tz.get('volume')}",
@@ -56,6 +63,9 @@ def tz_brief(tz: dict, lang: str, project: dict, research: dict | None = None, s
         out.append(f"Сайт: {project['domain']}")
     if project.get("notes"):
         out.append(f"Додаткові вимоги: {project['notes']}")
+    if facts is not None:
+        from . import facts as _facts
+        out.append("\n" + _facts.brief_block(facts, lang, style))
     out.append("\n## Структура з коментарями")
     for b in tz["blocks"]:
         t = b[0]
@@ -87,8 +97,12 @@ def tz_brief(tz: dict, lang: str, project: dict, research: dict | None = None, s
 
 
 # ---------------------------------------------------------------- перевірки
+LINK_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")
+
+
 def strip_md(md: str) -> str:
-    t = re.sub(r"^#{1,6}\s*", "", md, flags=re.M)
+    t = LINK_RE.sub(r"\1", md)
+    t = re.sub(r"^#{1,6}\s*", "", t, flags=re.M)
     t = re.sub(r"^\|?\s*-{2,}.*$", "", t, flags=re.M)
     t = t.replace("**", "").replace("|", " ")
     return re.sub(r"\s+", " ", t).strip()
@@ -150,7 +164,133 @@ def section_text(md: str, title: str):
     return None
 
 
-def check(md: str, tz: dict, lang: str, style: str = "default") -> dict:
+PLACEHOLDER_RE = re.compile(r"\[(?:\s*(?:уточн|уточнить|уточните|вставити|вставить|вказати|указать|додати|добавить|todo|tbd|xx+|дані|данные|цифр|назва|название|джерело|источник|посилання|ссылка)[^\]]*|\s*\.\.\.\s*|\s*…\s*)\](?!\()", re.I)
+STAT_RE = re.compile(r"\d+(?:[.,]\d+)?\s?(?:%|відсот\w*|процент\w*|млн|млрд|тис\.|тыс\.|тисяч\w*|тысяч\w*|разів|рази|раза|мільйон\w*|миллион\w*|мільярд\w*|миллиард\w*)", re.I)
+SOURCE_HINT_RE = re.compile(r"за даними|за дослідженням|згідно з (?:дослідж|даними|опитуванн)|опитуванн|дослідженн|по данным|согласно (?:исследов|данным|опрос)|опрос|исследовани|статистик", re.I)
+VAGUE_RE = re.compile(r"за даними (?:досліджень|експертів|статистики|аналітиків)|за статистикою|експерти вважають|дослідження показують|по данным (?:исследований|экспертов|статистики|аналитиков)|по статистике|эксперты считают|исследования показывают", re.I)
+ILLUSTR_RE = re.compile(r"умовн|припуст|приклад|наприклад|условн|допуст|пример|например|формул|[=×÷]|\d\s*[/+*]\s*\d", re.I)
+REQ_TABLE = re.compile(r"таблиц", re.I)
+REQ_STEPS = re.compile(r"нумерован|покроков|по кроках|по шагам|пошагов|етап(?:и|ів)\b|этап(?:ы|ов)\b|кроки\b|шаги\b", re.I)
+REQ_LIST = re.compile(r"списк|список|перелік|перечень|маркован|буллет", re.I)
+NEG_RE = re.compile(r"без (?:таблиц|списк|переліку|нумерац)", re.I)
+
+
+def _num_key(s: str) -> str:
+    m = re.search(r"\d+(?:[.,]\d+)?", s.replace("\u00a0", " ").replace(" ", ""))
+    return m.group(0).replace(",", ".") if m else ""
+
+
+def _sentences(text: str):
+    return [x.strip() for x in re.split(r"(?<=[.!?])\s+|\n+", text) if x.strip()]
+
+
+def tz_sections(tz: dict, lang: str):
+    """[(рівень, заголовок, [коментарі])] — заголовки H1/H2/H3 з коментарями під ними."""
+    L = 0 if lang == "ru" else 1
+    out = []
+    for b in tz["blocks"]:
+        if b[0] in ("h1", "h2", "h3"):
+            out.append((int(b[0][1]), b[1 + L], []))
+        elif b[0] in ("cta", "faq"):
+            out.append((2, b[0].upper(), []))
+        elif b[0] == "c" and out:
+            out[-1][2].append(b[1])
+    return out
+
+
+def section_body(md: str, title: str) -> str | None:
+    """Текст розділу (будь-якого рівня) — до наступного заголовка того ж або вищого рівня."""
+    ms = list(re.finditer(r"^(#{1,3})\s+(.+)$", md, re.M))
+    for j, m in enumerate(ms):
+        if _norm_h(m.group(2)) == _norm_h(title):
+            lvl = len(m.group(1))
+            end = next((x.start() for x in ms[j + 1:] if len(x.group(1)) <= lvl), len(md))
+            return md[m.end():end]
+    return None
+
+
+def fact_checks(md: str, tz: dict, lang: str, facts: list | None, project: dict | None):
+    """Цифри, джерела, посилання, плейсхолдери."""
+    issues, warns = [], []
+    facts = facts or []
+    project = project or {}
+    for m in PLACEHOLDER_RE.finditer(md):
+        issues.append(f"Плейсхолдер «{m.group(0)}» — текст має бути готовим до публікації: переписати фрагмент без нього")
+    fact_urls = {f["url"].rstrip("/") for f in facts}
+    own = (project.get("domain") or "").replace("https://", "").replace("http://", "").strip("/").lower()
+    for m in LINK_RE.finditer(md):
+        u = m.group(2).rstrip("/")
+        if u not in fact_urls and not (own and own in u.lower()):
+            issues.append(f"Посилання не з перевірених джерел: {m.group(2)} — прибрати")
+    allowed = " ".join([project.get("facts", ""), project.get("notes", ""), str(tz.get("volume", ""))]
+                       + [b[1] if len(b) < 3 else f"{b[1]} {b[2]}" for b in tz["blocks"] if len(b) > 1])
+    allowed_keys = {_num_key(x.group(0)) for x in re.finditer(r"\d+(?:[.,]\d+)?", allowed.replace("\u00a0", ""))}
+    fact_keys = {}
+    for f in facts:
+        for x in re.finditer(r"\d+(?:[.,]\d+)?", (f.get("number", "") + " " + f.get("quote", "")).replace("\u00a0", "")):
+            fact_keys.setdefault(_num_key(x.group(0)), f)
+    plain_links = LINK_RE.sub(lambda m: f"{m.group(1)} <{m.group(2)}>", md)
+    plain_links = re.sub(r"^#{1,6}\s*", "", plain_links, flags=re.M).replace("**", "")
+    used = set()
+    for sent in _sentences(plain_links):
+        if VAGUE_RE.search(sent) and "<http" not in sent:
+            issues.append(f"Джерело не назване: «{sent[:140]}» — назвати джерело з «Перевірених фактів» або прибрати")
+        stats = list(STAT_RE.finditer(sent))
+        if not stats and SOURCE_HINT_RE.search(sent):
+            stats = [x for x in re.finditer(r"\d+(?:[.,]\d+)?", sent) if not re.fullmatch(r"(19|20)\d\d", x.group(0))]
+        for st in stats:
+            k = _num_key(st.group(0))
+            if not k:
+                continue
+            if k in fact_keys:
+                f = fact_keys[k]
+                used.add(f["id"])
+                if f["url"].rstrip("/") not in sent:
+                    issues.append(f"Факт {f['id']} ({f['number']}) використано без посилання на джерело {f['url']}")
+                continue
+            if k in allowed_keys or k == "100" or ILLUSTR_RE.search(sent):
+                continue
+            issues.append(f"Цифра без перевіреного джерела: «{sent[:160]}» — прибрати число або взяти факт із «Перевірених фактів»")
+            break
+    return issues, warns, sorted(used)
+
+
+def structure_checks(md: str, tz: dict, lang: str):
+    """Зайві заголовки, H1, головний ключ, вимоги коментарів (таблиця / етапи / список)."""
+    issues, warns = [], []
+    secs = tz_sections(tz, lang)
+    known = {_norm_h(t) for _, t, _ in secs} | {_norm_h(b[1 + (0 if lang == "ru" else 1)]) for b in tz["blocks"] if b[0] == "q"}
+    hs = headings(md)
+    if sum(1 for lvl, _ in hs if lvl == 1) != 1:
+        issues.append("У тексті має бути рівно один H1")
+    for lvl, h in hs:
+        if _norm_h(h) not in known:
+            (issues if lvl <= 2 else warns).append(f"Заголовок H{lvl} «{h}» відсутній у ТЗ — прибрати (зробити абзацом / жирним рядком)")
+    if re.search(r"^#{4,}\s", md, re.M):
+        issues.append("Заголовки H4+ не передбачені ТЗ")
+    kws = tz.get(f"kw_{lang}") or []
+    if kws:
+        body = re.split(r"^#\s+.+$", md, maxsplit=1, flags=re.M)
+        first = next((p for p in re.split(r"\n\s*\n", body[-1]) if p.strip() and not p.lstrip().startswith("#")), "")
+        if first and not _count(strip_md(first), kws[0][0]):
+            issues.append(f"Головний ключ «{kws[0][0]}» має бути в першому абзаці")
+    for lvl, title, comments in secs:
+        c = " ".join(comments)
+        if not c or NEG_RE.search(c):
+            continue
+        body = section_body(md, title)
+        if body is None:
+            continue
+        if REQ_TABLE.search(c) and not re.search(r"^\s*\|.+\|", body, re.M):
+            issues.append(f"Розділ «{title}»: ТЗ вимагає таблицю — її немає")
+        if REQ_STEPS.search(c) and not re.search(r"^\s*\d+[.)]\s", body, re.M) and not re.search(r"^###\s", body, re.M):
+            warns.append(f"Розділ «{title}»: ТЗ описує етапи/кроки — бажано нумерований список")
+        if REQ_LIST.search(c) and not re.search(r"^\s*(?:[-*•]|\d+[.)])\s", body, re.M) and not re.search(r"^\s*\|", body, re.M):
+            warns.append(f"Розділ «{title}»: ТЗ просить список — його немає")
+    return issues, warns
+
+
+def check(md: str, tz: dict, lang: str, style: str = "default", facts: list | None = None, project: dict | None = None) -> dict:
     L = 0 if lang == "ru" else 1
     issues, warns = [], []
     plain = strip_md(md)
@@ -209,15 +349,24 @@ def check(md: str, tz: dict, lang: str, style: str = "default") -> dict:
         dom = comp.split("/")[0].replace("www.", "")
         if dom and dom.split(".")[0] in plain.lower() and len(dom.split(".")[0]) > 3:
             issues.append(f"Згадка конкурента: {dom}")
+    fi, fw, used = fact_checks(md, tz, lang, facts, project)
+    si, sw = structure_checks(md, tz, lang)
+    issues += si + fi
+    warns += sw + fw
+    if facts and style in styles.STYLES:
+        from .facts import STYLE_FACTS
+        lo = min(STYLE_FACTS[style][0], len(facts))
+        if len(used) < lo:
+            warns.append(f"Використано фактів із джерелами: {len(used)}, стиль передбачає щонайменше {lo}")
     styled = style in styles.STYLES
     (issues if styled else warns).extend(styles.ai_markers(plain))
     if styled:
         ls = styles.long_sentences(plain)
         if ls > 3:
             warns.append(f"Речень понад 25 слів: {ls} — за правилами стилю краще поділити")
-    placeholders = re.findall(r"\[(?:уточн|уточнить|уточнити)[^\]]*\]", md, re.I)
-    return {"chars": n, "issues": issues, "warnings": warns, "keywords": kw_rep, "sections": sections,
-            "placeholders": placeholders, "ok": not issues}
+    placeholders = [m.group(0) for m in PLACEHOLDER_RE.finditer(md)]
+    return {"chars": n, "issues": list(dict.fromkeys(issues)), "warnings": list(dict.fromkeys(warns)), "keywords": kw_rep,
+            "sections": sections, "placeholders": placeholders, "facts_used": used, "ok": not issues}
 
 
 async def languagetool(md: str, lang: str) -> list[str]:
@@ -252,7 +401,7 @@ def _clean_md(s: str) -> str:
 
 
 SECTION_SYS = """Ти — редактор. Перепиши ОДИН розділ SEO-тексту так, щоб його обсяг (знаки з пробілами, без розмітки) потрапив у ціль.
-Збережи заголовки розділу й підрозділів дослівно, зміст, факти, плейсхолдери [уточнити], таблиці/списки й ключові слова з переліку. Скорочуй «воду» і повтори, а не суть; якщо треба додати — додай конкретику. Збережи стиль і тональність оригіналу. Мова — природна {lang_name}, без помилок. Поверни лише markdown цього розділу."""
+Збережи заголовки розділу й підрозділів дослівно, зміст, факти, посилання [джерело](URL), кнопку CTA, таблиці/списки й ключові слова з переліку. Скорочуй «воду» і повтори, а не суть; якщо треба додати — додай конкретику. Збережи стиль і тональність оригіналу. Мова — природна {lang_name}, без помилок. Поверни лише markdown цього розділу."""
 
 
 async def fix_sections(md, tz, lang, brief_kw, log, style="default"):
@@ -292,63 +441,126 @@ async def fix_sections(md, tz, lang, brief_kw, log, style="default"):
     return md
 
 
-async def write_text(tz: dict, lang: str, project: dict, research: dict | None, log, style: str = "default") -> dict:
+AUDIT_TOOL = {
+    "name": "submit_audit",
+    "description": "Порушення ТЗ і помилки в тексті",
+    "input_schema": {"type": "object", "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {
+        "section": {"type": "string", "description": "заголовок розділу"},
+        "problem": {"type": "string", "description": "що саме не так (з посиланням на вимогу ТЗ, якщо це порушення ТЗ)"},
+        "quote": {"type": "string", "description": "фрагмент тексту, якого стосується (або порожньо, якщо чогось бракує)"},
+        "fix": {"type": "string", "description": "як виправити конкретно"},
+        "severity": {"type": "string", "enum": ["critical", "minor"]}},
+        "required": ["section", "problem", "fix", "severity"]}}}, "required": ["items"]},
+}
+AUDIT_SYS = """Ти — прискіпливий шеф-редактор. Перевір, чи текст написано СТРОГО за ТЗ і чи готовий він до публікації без ручних правок.
+Перевір:
+1. КОЖЕН коментар ТЗ до кожного розділу: чи виконано вимогу (зміст, що згадати, кількість пунктів/етапів, формат — таблиця, список, етапи, формула з прикладом, акценти, CTA-текст і кнопка).
+2. Смисл і логіка: суперечності, хибні твердження, нелогічні переходи, повтори між розділами, відповіді FAQ, що не відповідають на питання.
+3. Факти: усе про компанію — лише з «Про компанію» (вигадані роки, клієнти, гарантії, терміни, ціни, сертифікати — critical); статистика — лише з «Перевірених фактів», цифра/рік/країна збігаються з цитатою, є посилання.
+4. Готовність: жодних плейсхолдерів, «[уточнити]», недописаних речень, звернень до копірайтера.
+5. Мова: орфографія, граматика, пунктуація, суржик/кальки, канцелярит; стиль і тональність — за розділом «Стиль і тональність» (якщо є).
+НЕ перевіряй загальний обсяг і кількість входжень ключів — це робить автоматика.
+Повертай ЛИШЕ реальні порушення, кожне — з конкретним фрагментом і способом виправлення. Не вимагай того, чого немає в ТЗ, і не пропонуй смакових правок. critical — порушення ТЗ, фактів, смислу, мовні помилки; minor — дрібні стилістичні покращення. Якщо все добре — порожній список."""
+
+
+async def audit(md: str, brief: str) -> list[dict]:
+    import asyncio
+    if config.MOCK or not config.TEXT_AUDIT:
+        return []
+    try:
+        d = await asyncio.to_thread(llm.call_tool, AUDIT_SYS, f"{brief}\n\n## Текст для перевірки\n{md}", AUDIT_TOOL, 6000,
+                                    lambda x: "items" in x)
+        return [i for i in d.get("items", []) if i.get("problem")]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def _score(rep, spell, aud):
+    return len(rep["issues"]) * 2 + sum(2 for a in aud if a.get("severity") == "critical") + 0.5 * len(spell)
+
+
+def _report(rep, spell, aud):
+    sec = [f"- «{t}»: {a} зн. (ціль {lo}–{hi})" for t, a, lo, hi in rep["sections"] if a and lo]
+    crit = [a for a in aud if a.get("severity") == "critical"]
+    minor = [a for a in aud if a.get("severity") != "critical"]
+    fmt = lambda a: f"- [{a.get('section', '')}] {a['problem']}" + (f" — «{a['quote'][:200]}»" if a.get("quote") else "") + f" → {a.get('fix', '')}"  # noqa: E731
+    return "\n".join(["## Звіт автоматичної перевірки (виправити все)", *([f"- {x}" for x in rep["issues"]] or ["- проблем немає"]),
+                      *(["\n## Аудит відповідності ТЗ — критичне (виправити все)"] + [fmt(a) for a in crit] if crit else []),
+                      *(["\n## Аудит — бажані покращення (виправ, якщо це не порушує ТЗ)"] + [fmt(a) for a in minor] if minor else []),
+                      *(["\n## Обсяги розділів"] + sec if sec else []),
+                      *(["\n## Зауваження LanguageTool (перевір, виправ справжні помилки)"] + [f"- {x}" for x in spell] if spell else []),
+                      "\n## Фактичні входження ключів/LSI", *[f"- {k[0]} «{k[1]}»: {k[2]} (норма {k[3]})" for k in rep["keywords"]],
+                      "\nВажливо: заголовки не змінюй; кількість входжень зменшуй синонімами, займенниками й перебудовою речень; "
+                      "обсяг розділів тримай у цілях; змінюй лише проблемні фрагменти."])
+
+
+async def write_text(tz: dict, lang: str, project: dict, research: dict | None, log, style: str = "default",
+                     facts: list | None = None) -> dict:
     import asyncio
     style = styles.resolve(style, tz)
     if style in styles.STYLES or project.get("media"):
         log(f"{lang.upper()}: стиль — {styles.name(style)}" + (" + рамки медіа" if project.get("media") else ""))
-    brief = tz_brief(tz, lang, project, research, style)
+    brief = tz_brief(tz, lang, project, research, style, facts)
+    kwl = ", ".join(k for k, _ in tz.get(f"kw_{lang}", []))
+    ck = lambda t: check(t, tz, lang, style, facts, project)  # noqa: E731
     if config.MOCK:
-        md = _mock_text(tz, lang)
+        md = _mock_text(tz, lang, facts)
     else:
         log(f"{lang.upper()}: Claude пише текст")
         md = _clean_md(await asyncio.to_thread(
             llm.call_text, WRITER_SYS.replace("{lang_name}", LANG_NAME[lang]), brief + "\n\nНапиши текст сторінки.", 16000))
-    rounds = 0
+    versions, rounds = [], 0
     while True:
-        rep = check(md, tz, lang, style)
-        spell = await languagetool(md, lang)
-        log(f"{lang.upper()}: перевірка — {len(rep['issues'])} проблем, {len(spell)} зауважень LanguageTool, {rep['chars']} зн.")
-        if (rep["ok"] and not spell) or rounds >= config.TEXT_MAX_FIX_ROUNDS or config.MOCK:
+        if any(x.startswith("Загальний обсяг") for x in ck(md)["issues"]) and not config.MOCK:
+            md = await fix_sections(md, tz, lang, kwl, log, style)
+        rep, spell = ck(md), await languagetool(md, lang)
+        aud = await audit(md, brief)
+        crit = sum(1 for a in aud if a.get("severity") == "critical")
+        log(f"{lang.upper()}: перевірка (раунд {rounds}) — {len(rep['issues'])} проблем автоматики, {crit} критичних зауважень аудиту ТЗ, "
+            f"{len(spell)} LanguageTool, {rep['chars']} зн.")
+        versions.append((_score(rep, spell, aud), -rounds, md, rep, spell, aud))
+        if (rep["ok"] and not spell and not crit) or rounds >= config.TEXT_MAX_FIX_ROUNDS or config.MOCK:
             break
         rounds += 1
-        if any(x.startswith("Загальний обсяг") for x in rep["issues"]):
-            md = await fix_sections(md, tz, lang, ", ".join(k for k, _ in tz.get(f"kw_{lang}", [])), log, style)
-            rep = check(md, tz, lang, style)
-        sec = [f"- «{t}»: {a} зн. (ціль {lo}–{hi})" for t, a, lo, hi in rep["sections"] if a and lo]
-        report = "\n".join(["## Звіт перевірки", *[f"- {x}" for x in rep["issues"]],
-                            *(["\n## Обсяги розділів"] + sec if sec else []),
-                            *(["\n## Зауваження LanguageTool (перевір, виправ справжні помилки)"] + [f"- {x}" for x in spell] if spell else []),
-                            "\n## Фактичні входження ключів/LSI", *[f"- {k[0]} «{k[1]}»: {k[2]} (норма {k[3]})" for k in rep["keywords"]],
-                            "\nВажливо: заголовки не змінюй; кількість входжень зменшуй синонімами, займенниками й перебудовою речень; обсяг розділів тримай у цілях."])
         log(f"{lang.upper()}: редактор виправляє (раунд {rounds})")
         md = _clean_md(await asyncio.to_thread(
             llm.call_text, EDITOR_SYS.replace("{lang_name}", LANG_NAME[lang]),
-            f"{brief}\n\n{report}\n\n## Текст\n{md}\n\nПоверни виправлений повний текст.", 16000))
-    # фінальна вичитка: окремий прохід коректора без зміни структури (лише якщо ще не редагували)
+            f"{brief}\n\n{_report(rep, spell, aud)}\n\n## Текст\n{md}\n\nПоверни виправлений повний текст.", 16000))
+    best = min(versions, key=lambda v: (v[0], v[1]))
+    md, rep, spell, aud = best[2], best[3], best[4], best[5]
+    if len(versions) > 1 and best is not versions[-1]:
+        log(f"{lang.upper()}: остання редакція не краща — беру найкращу версію (раунд {-best[1]})")
+    # фінальна коректура, якщо редактор ще не торкався тексту; приймаємо лише без погіршень
     if rounds == 0 and not config.MOCK:
         log(f"{lang.upper()}: фінальна коректура")
         fixed = _clean_md(await asyncio.to_thread(
             llm.call_text, EDITOR_SYS.replace("{lang_name}", LANG_NAME[lang]),
-            f"{brief}\n\n## Звіт перевірки\n- Автоматичних проблем не знайдено. Зроби лише коректуру: орфографія, пунктуація, граматика, стиль, логіка. Нічого не скорочуй і не додавай.\n\n## Текст\n{md}", 16000))
-        if check(fixed, tz, lang, style)["ok"]:
-            md = fixed
-    if not config.MOCK and not check(md, tz, lang, style)["ok"] and any(x.startswith("Загальний обсяг") for x in check(md, tz, lang, style)["issues"]):
-        md = await fix_sections(md, tz, lang, ", ".join(k for k, _ in tz.get(f"kw_{lang}", [])), log, style)
-        rep = check(md, tz, lang, style)
-        spell = await languagetool(md, lang)
-    rep = check(md, tz, lang, style)
-    return {"lang": lang, "markdown": md, "report": rep, "spelling": spell, "rounds": rounds,
+            f"{brief}\n\n## Звіт перевірки\n- Автоматичних проблем не знайдено. Зроби лише коректуру: орфографія, пунктуація, граматика, "
+            f"стиль, логіка. Нічого не скорочуй і не додавай.\n\n## Текст\n{md}", 16000))
+        r2 = ck(fixed)
+        if len(r2["issues"]) <= len(rep["issues"]):
+            md, rep = fixed, r2
+    leftover = [a for a in aud if a.get("severity") == "critical"]
+    rep = {**rep, "audit": aud}
+    if leftover:
+        rep["issues"] = rep["issues"] + [f"Аудит ТЗ: [{a.get('section', '')}] {a['problem']}" for a in leftover]
+        rep["ok"] = False
+    return {"lang": lang, "markdown": md, "report": rep, "spelling": spell, "rounds": rounds, "facts": facts or [],
             "style": style, "style_name": styles.name(style) + (" + рамки медіа" if project.get("media") else "")}
 
 
-def _mock_text(tz, lang):
+def _mock_text(tz, lang, facts=None):
     L = 0 if lang == "ru" else 1
     lines = []
+    kw = (tz.get(f"kw_{lang}") or [("", "")])[0][0]
     for b in tz["blocks"]:
         t = b[0]
         if t == "h1":
-            lines.append(f"# {b[1 + L]}\n\nТестовий абзац.")
+            src = ""
+            if facts:
+                f = facts[0]
+                src = f" За даними [{f['org']}]({f['url']}), {f['year']}, {f['number']} відвідувань обриваються."
+            lines.append(f"# {b[1 + L]}\n\nТестовий абзац про {kw}.{src}")
         elif t in ("h2", "h3"):
             lines.append(f"{'##' if t == 'h2' else '###'} {b[1 + L]}\n\nТестовий текст розділу.")
         elif t in ("cta", "faq"):

@@ -3,7 +3,7 @@ import httpx
 
 from . import config
 
-HL = {"ua": "uk", "ru": "ru"}
+HL = {"ua": "uk", "ru": "ru", "en": "en"}
 
 
 async def search(query: str, lang: str, num: int = 10) -> dict:
@@ -12,7 +12,7 @@ async def search(query: str, lang: str, num: int = 10) -> dict:
         return mock_serp(query, lang)
     if not config.SERPER_API_KEY:
         raise RuntimeError("Не задано SERPER_API_KEY")
-    payload = {"q": query, "gl": "ua", "hl": HL.get(lang, "uk"), "num": num}
+    payload = {"q": query, "gl": "us" if lang == "en" else "ua", "hl": HL.get(lang, "uk"), "num": num}
     async with httpx.AsyncClient(timeout=30) as cl:
         r = await cl.post(
             "https://google.serper.dev/search",

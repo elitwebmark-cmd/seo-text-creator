@@ -6,14 +6,40 @@ from docx.enum.text import WD_BREAK
 from docx.shared import Pt, RGBColor
 
 
+def _link(par, text, url, bold=False):
+    from docx.opc.constants import RELATIONSHIP_TYPE as RT
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+    rid = par.part.relate_to(url, RT.HYPERLINK, is_external=True)
+    h = OxmlElement("w:hyperlink")
+    h.set(qn("r:id"), rid)
+    r = OxmlElement("w:r")
+    rpr = OxmlElement("w:rPr")
+    c = OxmlElement("w:color"); c.set(qn("w:val"), "1155CC"); rpr.append(c)
+    u = OxmlElement("w:u"); u.set(qn("w:val"), "single"); rpr.append(u)
+    if bold:
+        rpr.append(OxmlElement("w:b"))
+    r.append(rpr)
+    t = OxmlElement("w:t"); t.text = text; t.set(qn("xml:space"), "preserve"); r.append(t)
+    h.append(r)
+    par._p.append(h)
+
+
 def _runs(par, text):
     for part in re.split(r"(\*\*[^*]+\*\*)", text):
         if not part:
             continue
-        if part.startswith("**") and part.endswith("**"):
-            r = par.add_run(part[2:-2]); r.bold = True
-        else:
-            par.add_run(part)
+        bold = part.startswith("**") and part.endswith("**")
+        if bold:
+            part = part[2:-2]
+        for j, seg in enumerate(re.split(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", part)):
+            k = j % 3
+            if k == 0 and seg:
+                par.add_run(seg).bold = bold or None
+            elif k == 1:
+                label = seg
+            elif k == 2:
+                _link(par, label, seg, bold)
 
 
 def _md(doc, md):
@@ -38,7 +64,7 @@ def _md(doc, md):
                 for ri, r in enumerate(rows):
                     for ci, v in enumerate(r):
                         cell = t.cell(ri, ci)
-                        cell.text = v.replace("**", "")
+                        cell.text = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r"\1 (\2)", v.replace("**", ""))
                         if ri == 0:
                             for p in cell.paragraphs:
                                 for run in p.runs:
@@ -97,7 +123,21 @@ def build(texts: list[dict], path):
             for x in t["spelling"][:15]:
                 doc.add_paragraph(x, style="List Bullet")
         if rep.get("placeholders"):
-            doc.add_paragraph("Плейсхолдери для заповнення: " + "; ".join(dict.fromkeys(rep["placeholders"])))
+            doc.add_paragraph("Плейсхолдери: " + "; ".join(dict.fromkeys(rep["placeholders"])))
+        if t.get("facts"):
+            used = set(rep.get("facts_used") or [])
+            doc.add_paragraph().add_run(f"Факти з джерелами (перевірено дослівно на сторінці джерела; використано {len(used)} з {len(t['facts'])}):").bold = True
+            ft = doc.add_table(rows=1, cols=4)
+            ft.style = "Table Grid"
+            for i, h in enumerate(["#", "Факт", "Джерело", "У тексті"]):
+                ft.rows[0].cells[i].text = h
+            for f in t["facts"]:
+                row = ft.add_row().cells
+                row[0].text = f["id"]
+                row[1].text = f.get("claim_" + ("ru" if t["lang"] == "ru" else "ua"), "") + f"\nЦитата: «{f.get('quote', '')}»"
+                row[2].text = f"{f.get('org')}, {f.get('year')}, {f.get('geo')}"
+                _link(row[2].add_paragraph(), f["url"], f["url"])
+                row[3].text = "так" if f["id"] in used else "—"
         if rep.get("keywords"):
             tbl = doc.add_table(rows=1, cols=4)
             tbl.style = "Table Grid"

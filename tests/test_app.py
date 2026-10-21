@@ -219,3 +219,75 @@ def test_texts_with_styles_per_page_and_batch():
     doc = [f for f in j3["files"] if f.endswith(".docx")][0]
     txt = "\n".join(p.text for p in docx.Document(io.BytesIO(client.get(f"/api/jobs/{j3['id']}/files/{doc}").content)).paragraphs)
     assert "В. Голос аудиторії" in txt
+
+
+def _fact(year=None):
+    import datetime as dt
+    y = year or dt.date.today().year
+    return {"id": "F1", "url": "https://www.thinkwithgoogle.com/s", "org": "Google", "year": y, "geo": "світ", "number": "53%", "fit": 5,
+            "quote": f"In {y}, 53% of mobile site visits were abandoned if a page took longer than three seconds to load."}
+
+
+def test_fact_verification():
+    from app import facts
+    f = _fact()
+    page = {"https://www.thinkwithgoogle.com/s": {"text": "Intro. " + f["quote"].replace("53%", "53 %") + " More text.", "date": ""}}
+    assert facts.verify(f, page) == ""
+    assert facts.verify({**f, "quote": f["quote"].replace("53%", "63%"), "number": "63%"}, page) != ""
+    assert "застарілі" in facts.verify(_fact(2015), {"https://www.thinkwithgoogle.com/s": {"text": _fact(2015)["quote"], "date": ""}})
+    assert facts.verify({**f, "url": "https://some-agency.ua/blog"}, {"https://some-agency.ua/blog": page["https://www.thinkwithgoogle.com/s"]}) != ""
+
+
+def test_checker_numbers_links_placeholders():
+    from app import writer, prompts, llm
+    tz = llm.normalize(prompts.EXAMPLE)
+    f = _fact()
+    good = f"# X\n\nЗа даними [Google]({f['url']}), {f['year']}, 53% відвідувань обриваються. Умовно 20% бюджету йде на тести."
+    rep = writer.fact_checks(good, tz, "ua", [f], {})
+    assert not rep[0] and rep[2] == ["F1"], rep
+    bad = ("# X\n\nЗа статистикою, 43% компаній втрачають клієнтів. Ціна: [уточнити: вартість]. "
+           "Дивіться [звіт](https://random.blog/x). Google: 53% відвідувань обриваються.")
+    issues = writer.fact_checks(bad, tz, "ua", [f], {})[0]
+    txt = " | ".join(issues)
+    assert "Плейсхолдер" in txt and "не з перевірених" in txt and "без перевіреного джерела" in txt and "без посилання" in txt, txt
+    st = writer.structure_checks("# A\n\n## Зовсім новий розділ\n\nтекст", tz, "ua")[0]
+    assert any("відсутній у ТЗ" in x for x in st)
+
+
+def test_editor_regression_keeps_best_version(monkeypatch):
+    import asyncio
+    from app import writer, prompts, llm, config
+    tz = llm.normalize(prompts.EXAMPLE)
+    draft = writer._mock_text(tz, "ua")
+    worse = draft + "\n\n## Зайвий розділ\n\nЗа статистикою, 43% компаній. [уточнити]"
+    calls = {"n": 0}
+
+    def fake(system, prompt, max_tokens=16000):
+        calls["n"] += 1
+        if system.startswith("Ти — досвідчений SEO"):
+            return draft
+        if system.startswith("Ти — шеф-редактор"):
+            return worse
+        return "x" * 300
+
+    async def no_lt(md, lang):
+        return []
+
+    monkeypatch.setattr(config, "MOCK", False)
+    monkeypatch.setattr(config, "TEXT_AUDIT", False)
+    monkeypatch.setattr(llm, "call_text", fake)
+    monkeypatch.setattr(writer, "languagetool", no_lt)
+    res = asyncio.run(writer.write_text(tz, "ua", {}, None, lambda m: None, facts=[]))
+    assert "Зайвий розділ" not in res["markdown"] and res["rounds"] >= 1
+
+
+def test_docx_has_hyperlink_and_sources():
+    import docx, io
+    body = {"project": {"domain": "elit-web.ua"}, "formats": ["texts"],
+            "pages": [{"name_ua": "SERM", "ua": [["serm послуги", 40]]}]}
+    j = _wait(client.post("/api/jobs", json=body).json()["id"])
+    doc = [f for f in j["files"] if f.endswith(".docx")][0]
+    d = docx.Document(io.BytesIO(client.get(f"/api/jobs/{j['id']}/files/{doc}").content))
+    xml = d.element.xml
+    assert "w:hyperlink" in xml and "thinkwithgoogle" in str([r.target_ref for r in d.part.rels.values()])
+    assert any("Факти з джерелами" in p.text for p in d.paragraphs)
