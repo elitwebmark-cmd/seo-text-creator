@@ -61,7 +61,7 @@ def build(texts: list[dict], path):
     doc.add_heading("SEO-тексти", 0)
     p = doc.add_paragraph("Зміст: ")
     for t in texts:
-        doc.add_paragraph(f"{t['title']} — {t['lang'].upper()} ({t['report']['chars']} зн.)", style="List Bullet")
+        doc.add_paragraph(f"{t['title']} — {t['lang'].upper()} ({t['report']['chars']} зн.)" + (f", стиль: {t['style_name']}" if t.get("style_name") else ""), style="List Bullet")
     for t in texts:
         doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
         meta = doc.add_paragraph()
@@ -75,7 +75,8 @@ def build(texts: list[dict], path):
         _md(doc, t["markdown"])
         rep = t["report"]
         doc.add_heading("Перевірка тексту (службовий блок, не публікувати)", 3)
-        doc.add_paragraph(f"Обсяг: {rep['chars']} зн. з пробілами. Раундів редагування: {t.get('rounds', 0)}.")
+        doc.add_paragraph(f"Обсяг: {rep['chars']} зн. з пробілами. Раундів редагування: {t.get('rounds', 0)}."
+                          + (f" Стиль: {t['style_name']}." if t.get("style_name") else ""))
         if rep["issues"]:
             doc.add_paragraph().add_run("Потребує уваги (не вдалося виправити автоматично):").bold = True
             for x in rep["issues"]:

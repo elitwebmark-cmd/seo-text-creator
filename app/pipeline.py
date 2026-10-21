@@ -123,6 +123,7 @@ async def run_job(jid: str):
             errors.append(f"{name}: {r}")
             db.log(jid, f"ПОМИЛКА [{i+1:02d} {name}]: {r}")
         else:
+            r["style"] = pages[i].get("style") or ""
             items.append(r)
     files = []
     if items:
@@ -155,7 +156,8 @@ async def write_texts(jid, items, project, outdir, errors):
         tz = it["tz"]
         name = tz.get(f"name_{lang}") or tz.get("name_ua") or it["id"]
         async with sem:
-            res = await writer.write_text(tz, lang, project, it.get("research"), lambda m: db.log(jid, f"[{it['id']} {name}] {m}"))
+            res = await writer.write_text(tz, lang, project, it.get("research"), lambda m: db.log(jid, f"[{it['id']} {name}] {m}"),
+                                          style=it.get("style") or project.get("text_style") or "default")
         done["n"] += 1
         db.update(jid, progress=round(base + (0.99 - base) * done["n"] / len(tasks), 3))
         return {"id": it["id"], "title": name, "lang": lang, "url": tz.get(f"url_{lang}"), "title_tag": tz.get(f"title_{lang}"),
@@ -188,10 +190,15 @@ async def run_texts_job(jid: str):
     params = db.get(jid)["params"]
     src = config.DATA_DIR / "jobs" / params["source"]
     src_job = db.get(params["source"]) or {}
-    project = (src_job.get("params") or {}).get("project", {})
+    project = dict((src_job.get("params") or {}).get("project", {}))
+    if "style" in params:  # стиль, обраний при запуску текстів, має пріоритет над стилем задачі ТЗ
+        project["text_style"] = params.get("style") or "default"
+        project["media"] = bool(params.get("media"))
+    per = params.get("styles") or {}
     items = [_json.loads(p.read_text(encoding="utf-8")) for p in sorted(src.glob("page_*.json"))]
     for it in items:  # JSON перетворює кортежі на списки
         it["tz"]["blocks"] = [tuple(b) for b in it["tz"]["blocks"]]
+        it["style"] = per.get(it["id"]) or ""
     outdir = config.DATA_DIR / "jobs" / jid
     outdir.mkdir(parents=True, exist_ok=True)
     db.update(jid, status="running", progress=0.02)
@@ -234,12 +241,14 @@ async def run_texts_import_job(jid: str):
             if lang != e["lang"]:  # користувач змінив мову — переносимо ключі
                 tz[f"kw_{lang}"], tz[f"lsi_{lang}"] = tz.get(f"kw_{e['lang']}", []), tz.get(f"lsi_{e['lang']}", [])
             tz["short"] = (tz.get("short") or e["sheet"])[:20]
-            items.append({"id": f"{n:02d}", "tz": tz, "sem": {lang: [("—", None)]}, "research": None})
+            items.append({"id": f"{n:02d}", "tz": tz, "sem": {lang: [("—", None)]}, "research": None,
+                          "style": (params.get("styles") or {}).get(str(idx)) or ""})
             db.log(jid, f"[{e['sheet']}] ТЗ прийнято: {lang.upper()}, обсяг {tz.get('volume') or 'не вказано'}")
         except Exception as ex:  # noqa: BLE001
             errors.append(f"{e['sheet']}: {ex}")
             db.log(jid, f"ПОМИЛКА [{e['sheet']}]: {ex}")
-    files = await write_texts(jid, items, params.get("project", {}), outdir, errors) if items else []
+    project = {**params.get("project", {}), "text_style": params.get("style") or "default", "media": bool(params.get("media"))}
+    files = await write_texts(jid, items, project, outdir, errors) if items else []
     status = "done" if files and not errors else ("partial" if files else "error")
     db.update(jid, status=status, progress=1.0, files=files, error="\n".join(errors))
 

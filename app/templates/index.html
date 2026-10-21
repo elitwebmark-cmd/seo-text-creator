@@ -61,7 +61,7 @@
   <div class="card hidden" id="pagesCard">
     <h2><span class="step">3</span> Сторінки <span class="muted small">— пари UA ↔ RU підібрано автоматично, перевірте</span></h2>
     <div class="table-wrap"><table id="pagesTbl">
-      <thead><tr><th><input type="checkbox" id="checkAll" checked></th><th>#</th><th>Кластер UA</th><th>Кластер RU</th><th>Ключі</th><th>Примітка до сторінки</th></tr></thead>
+      <thead><tr><th><input type="checkbox" id="checkAll" checked></th><th>#</th><th>Кластер UA</th><th>Кластер RU</th><th>Ключі</th><th>Примітка до сторінки</th><th>Стиль тексту</th></tr></thead>
       <tbody></tbody>
     </table></div>
     <div class="row-inline"><button class="btn ghost small" id="addPage">+ Додати сторінку</button>
@@ -76,6 +76,12 @@
       <label class="fmt"><input type="checkbox" value="base" checked> <b>Base</b><span class="muted small">Як у прикладі: структура з коментарями, ключі з частотою</span></label>
       <label class="fmt"><input type="checkbox" value="texts"> <b>SEO-тексти (Word)</b><span class="muted small">Одразу після ТЗ: автор → автоматична перевірка (обсяг, заголовки, ключі, LSI, FAQ, орфографія) → редактор. Можна й пізніше кнопкою «Написати тексти» на готовій задачі.</span></label>
     </div>
+    <div class="stylebox" id="genStyleBox">
+      <label>Стиль і тональність текстів (для всіх сторінок; окремій сторінці можна задати свій у таблиці вище)
+        <select id="styleAll" class="style-sel"></select></label>
+      <div class="muted small style-hint" data-for="styleAll"></div>
+      <label class="chk"><input type="checkbox" id="mediaAll"> Редакційна стаття (рамки MoreThanMedia): без згадок агенції, закликів замовити й фактів про компанію</label>
+    </div>
     <button class="btn primary" id="genBtn">Згенерувати ТЗ</button>
     <span id="genMsg" class="muted"></span>
   </div>
@@ -86,7 +92,12 @@
     <label>…або вставте ТЗ текстом<textarea id="tzText" rows="4" placeholder="H1: …&#10;коментар…&#10;H2: …"></textarea></label>
     <button class="btn" id="tzParseBtn">Розпізнати ТЗ</button> <span id="tzMsg" class="muted"></span>
     <div id="tzList" class="hidden">
-      <div class="table-wrap"><table id="tzTbl"><thead><tr><th><input type="checkbox" id="tzAll" checked></th><th>Вкладка / ТЗ</th><th>Мова тексту</th><th>Заголовків</th><th>Ключів</th><th>Обсяг</th></tr></thead><tbody></tbody></table></div>
+      <div class="table-wrap"><table id="tzTbl"><thead><tr><th><input type="checkbox" id="tzAll" checked></th><th>Вкладка / ТЗ</th><th>Мова тексту</th><th>Стиль</th><th>Заголовків</th><th>Ключів</th><th>Обсяг</th></tr></thead><tbody></tbody></table></div>
+      <div class="stylebox">
+        <label>Стиль і тональність (для всіх ТЗ; окремому ТЗ — у таблиці)<select id="tzStyleAll" class="style-sel"></select></label>
+        <div class="muted small style-hint" data-for="tzStyleAll"></div>
+        <label class="chk"><input type="checkbox" id="tzMedia"> Редакційна стаття (рамки MoreThanMedia)</label>
+      </div>
       <button class="btn primary" id="tzTextsBtn">Написати тексти</button> <span id="tzTextsMsg" class="muted"></span>
     </div>
   </div>
@@ -105,6 +116,14 @@
   <div class="grid2"><label>Назва UA<input id="kwNameUa"></label><label>Назва RU<input id="kwNameRu"></label>
   <label>UA<textarea id="kwUa" rows="14"></textarea></label><label>RU<textarea id="kwRu" rows="14"></textarea></label></div>
   <button class="btn primary" id="kwSave">Зберегти</button></div></dialog>
+<dialog id="styleDlg"><div class="dlg-head"><b>Написати тексти</b><button class="btn ghost small" onclick="styleDlg.close()">✕</button></div>
+  <div class="dlg-body">
+    <label>Стиль і тональність для всіх текстів<select id="dlgStyle" class="style-sel"></select></label>
+    <div class="muted small style-hint" data-for="dlgStyle"></div>
+    <label class="chk"><input type="checkbox" id="dlgMedia"> Редакційна стаття (рамки MoreThanMedia)</label>
+    <div class="table-wrap"><table id="dlgTbl"><thead><tr><th>#</th><th>Сторінка</th><th>Стиль цієї сторінки</th></tr></thead><tbody></tbody></table></div>
+    <p class="muted small">Кожен текст — окремі виклики Claude (≈ $0.2–0.4 за текст).</p>
+    <button class="btn primary" id="dlgGo">Написати тексти</button> <span id="dlgMsg" class="muted"></span></div></dialog>
 <dialog id="logDlg"><div class="dlg-head"><b id="logTitle"></b><button class="btn ghost small" onclick="logDlg.close()">✕</button></div><pre id="logBody"></pre></dialog>
 <script src="/static/app.js?v={{ v }}"></script>
 </body></html>

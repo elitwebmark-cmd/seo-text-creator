@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import BaseModel, Field
 
-from . import config, db, pipeline, semantics
+from . import config, db, pipeline, semantics, styles
 
 BASE = Path(__file__).parent
 app = FastAPI(title="SEO ТЗ генератор")
@@ -125,6 +125,7 @@ class PageIn(BaseModel):
     ua: list[list] = Field(default_factory=list)
     ru: list[list] = Field(default_factory=list)
     notes: str = ""
+    style: str = ""
 
 
 class JobIn(BaseModel):
@@ -139,6 +140,7 @@ def create_job(body: JobIn):
     pages = []
     for p in body.pages:
         d = p.model_dump()
+        d["style"] = styles.valid(d.get("style")) if d.get("style") else ""
         for l in ("ua", "ru"):
             d[l] = [(str(k), semantics._vol(v)) for k, v in d[l] if str(k).strip()]
             d[l].sort(key=lambda x: -(x[1] or 0))
@@ -152,7 +154,8 @@ def create_job(body: JobIn):
         if missing:
             raise HTTPException(400, "На сервері не задано: " + ", ".join(missing))
     title = body.title or f"{body.project.get('domain') or 'Проєкт'} — {len(pages)} стор."
-    jid = db.create(title, {"project": body.project, "pages": pages, "formats": formats})
+    project = {**body.project, "text_style": styles.valid(body.project.get("text_style")), "media": bool(body.project.get("media"))}
+    jid = db.create(title, {"project": project, "pages": pages, "formats": formats})
     pipeline.start(jid)
     return {"id": jid}
 
@@ -179,14 +182,43 @@ def collect_semantics(body: SemIn):
     return {"id": jid}
 
 
+class StyleIn(BaseModel):
+    style: str = "default"
+    styles: dict = Field(default_factory=dict)
+    media: bool = False
+
+
+def _styles_map(m: dict) -> dict:
+    return {str(k): styles.valid(v) for k, v in (m or {}).items() if v}
+
+
+@app.get("/api/styles")
+def styles_list():
+    return styles.catalog()
+
+
+@app.get("/api/jobs/{jid}/pages")
+def job_pages(jid: str):
+    import json as _json
+    out = []
+    for p in sorted((config.DATA_DIR / "jobs" / jid).glob("page_*.json")):
+        it = _json.loads(p.read_text(encoding="utf-8"))
+        tz = it["tz"]
+        out.append({"id": it["id"], "name": tz.get("name_ua") or tz.get("name_ru") or it["id"],
+                    "auto": styles.name(styles.detect(tz))})
+    return out
+
+
 @app.post("/api/jobs/{jid}/texts")
-def texts_job(jid: str):
+def texts_job(jid: str, body: StyleIn | None = None):
     src = db.get(jid)
     if not src or not list((config.DATA_DIR / "jobs" / jid).glob("page_*.json")):
         raise HTTPException(404, "У цій задачі немає готових ТЗ")
     if not config.MOCK and not config.ANTHROPIC_API_KEY:
         raise HTTPException(400, "На сервері не задано ANTHROPIC_API_KEY")
-    new = db.create("Тексти: " + src["title"], {"kind": "texts", "source": jid})
+    body = body or StyleIn()
+    new = db.create("Тексти: " + src["title"], {"kind": "texts", "source": jid, "style": styles.valid(body.style),
+                                                 "styles": _styles_map(body.styles), "media": body.media})
     pipeline.start(new)
     return {"id": new}
 
@@ -218,7 +250,8 @@ async def tz_parse(file: UploadFile | None = File(None), text: str = Form("")):
     up = config.DATA_DIR / "uploads"
     up.mkdir(exist_ok=True)
     (up / f"{token}.json").write_text(_json.dumps(entries, ensure_ascii=False), encoding="utf-8")
-    return {"token": token, "items": [{"sheet": e["sheet"], "lang": e["lang"], "name": e["name"], "stats": e["stats"]} for e in entries]}
+    return {"token": token, "items": [{"sheet": e["sheet"], "lang": e["lang"], "name": e["name"], "stats": e["stats"],
+                                       "auto": styles.name(styles.detect(e["tz"] or {"name_ua": e["name"]}))} for e in entries]}
 
 
 class TzTextsIn(BaseModel):
@@ -227,6 +260,9 @@ class TzTextsIn(BaseModel):
     langs: dict = Field(default_factory=dict)
     project: dict = Field(default_factory=dict)
     title: str = ""
+    style: str = "default"
+    styles: dict = Field(default_factory=dict)
+    media: bool = False
 
 
 @app.post("/api/tz/texts")
@@ -238,7 +274,8 @@ def tz_texts(body: TzTextsIn):
     if not config.MOCK and not config.ANTHROPIC_API_KEY:
         raise HTTPException(400, "На сервері не задано ANTHROPIC_API_KEY")
     jid = db.create(body.title or f"Тексти за готовими ТЗ ({len(body.selected)})",
-                    {"kind": "texts_import", "token": body.token, "selected": body.selected, "langs": body.langs, "project": body.project})
+                    {"kind": "texts_import", "token": body.token, "selected": body.selected, "langs": body.langs, "project": body.project,
+                     "style": styles.valid(body.style), "styles": _styles_map(body.styles), "media": body.media})
     pipeline.start(jid)
     return {"id": jid}
 

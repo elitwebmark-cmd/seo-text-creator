@@ -1,4 +1,20 @@
 const $ = s => document.querySelector(s);
+let STYLES = [];
+const styleOpts = (inherit, sel) => (inherit ? '<option value="">— як для всіх —</option>' : '')
+  + STYLES.map(st => `<option value="${st.id}" ${st.id === sel ? 'selected' : ''} title="${esc(st.summary)}">${esc(st.name)}${st.topics ? ' — ' + esc(st.topics) : ''}</option>`).join('');
+function styleHint(sel) {
+  const h = document.querySelector(`.style-hint[data-for="${sel.id}"]`); if (!h) return;
+  const st = STYLES.find(x => x.id === sel.value); h.textContent = st ? st.summary : '';
+}
+function fillStyleSelects() {
+  document.querySelectorAll('select.style-sel').forEach(sel => {
+    let saved = sel.value; try { saved = saved || localStorage.getItem('tz_' + sel.id) || 'default'; } catch(e) { saved = saved || 'default'; }
+    sel.innerHTML = styleOpts(false, saved); styleHint(sel);
+    sel.onchange = () => { styleHint(sel); try { localStorage.setItem('tz_' + sel.id, sel.value); } catch(e){} };
+  });
+  document.querySelectorAll('select.pstyle, select.tzstyle').forEach(sel => { const v = sel.value; sel.innerHTML = styleOpts(true, v); });
+}
+fetch('/api/styles').then(r => r.json()).then(d => { STYLES = d; fillStyleSelects(); });
 let SEM = {ua: [], ru: []};
 const FIELDS = ['domain','title','url_ru','url_ua','facts','notes'];
 
@@ -58,7 +74,8 @@ function addRow(p) {
   const extra = p.main === false;
   tr.innerHTML = `<td><input type="checkbox" class="inc" ${extra ? '' : 'checked'}></td><td class="num"></td>
     <td><select class="selua">${opts('ua', p.ua)}</select></td><td><select class="selru">${opts('ru', p.ru)}</select></td>
-    <td class="kws" title="Натисніть, щоб редагувати ключі"></td><td><input class="pnote" placeholder="напр. акцент на B2B">${extra ? `<div class="muted small">Запропонована дод. сторінка${p.why ? ': ' + esc(p.why) : ''}</div>` : ''}</td>`;
+    <td class="kws" title="Натисніть, щоб редагувати ключі"></td><td><input class="pnote" placeholder="напр. акцент на B2B">${extra ? `<div class="muted small">Запропонована дод. сторінка${p.why ? ': ' + esc(p.why) : ''}</div>` : ''}</td>
+    <td><select class="pstyle">${styleOpts(true, '')}</select></td>`;
   tb.appendChild(tr);
   tr.querySelectorAll('select').forEach(s => s.onchange = () => kwPreview(tr));
   tr.querySelector('.kws').onclick = () => editKw(tr);
@@ -129,7 +146,7 @@ function selectedPages() {
     if (!tr.querySelector('.inc').checked) return;
     const u = SEM.ua[tr.querySelector('.selua').value], r = SEM.ru[tr.querySelector('.selru').value];
     if (!u && !r) return;
-    pages.push({name_ua: u?.name || '', name_ru: r?.name || '', ua: u?.keywords || [], ru: r?.keywords || [], notes: tr.querySelector('.pnote').value});
+    pages.push({name_ua: u?.name || '', name_ru: r?.name || '', ua: u?.keywords || [], ru: r?.keywords || [], notes: tr.querySelector('.pnote').value, style: tr.querySelector('.pstyle').value});
   });
   return pages;
 }
@@ -149,7 +166,8 @@ $('#genBtn').onclick = async () => {
   const formats = [...document.querySelectorAll('.fmt input:checked')].map(x => x.value);
   if (!pages.length) { $('#genMsg').textContent = 'Оберіть хоча б одну сторінку'; return; }
   if (!formats.length) { $('#genMsg').textContent = 'Оберіть формат: Advanced або Base'; return; }
-  const project = {domain: $('#domain').value.trim(), url_ru_pattern: $('#url_ru').value.trim(), url_ua_pattern: $('#url_ua').value.trim(), facts: $('#facts').value.trim(), notes: $('#notes').value.trim()};
+  const project = {domain: $('#domain').value.trim(), url_ru_pattern: $('#url_ru').value.trim(), url_ua_pattern: $('#url_ua').value.trim(), facts: $('#facts').value.trim(), notes: $('#notes').value.trim(),
+    text_style: $('#styleAll').value || 'default', media: $('#mediaAll').checked};
   $('#genBtn').disabled = true; $('#genMsg').textContent = 'Запускаю…';
   try {
     const r = await fetch('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title: $('#title').value.trim(), project, pages, formats})});
@@ -182,13 +200,25 @@ async function showLog(id) {
   $('#logBody').textContent = (j.log || []).map(l => `${l.t}  ${l.m}`).join('\n');
   $('#logDlg').showModal();
 }
+let DLG_JOB = null;
 async function writeTexts(id) {
-  if (!confirm('Написати SEO-тексти за всіма ТЗ цієї задачі? Це окремі виклики Claude (≈ $0.2–0.4 за текст).')) return;
-  const r = await fetch(`/api/jobs/${id}/texts`, {method: 'POST'});
-  const d = await r.json().catch(() => ({}));
-  if (!r.ok) alert(d.detail || 'Помилка');
-  loadJobs();
+  DLG_JOB = id; $('#dlgMsg').textContent = '';
+  const r = await fetch(`/api/jobs/${id}/pages`); const pages = r.ok ? await r.json() : [];
+  $('#dlgTbl tbody').innerHTML = pages.map(p => `<tr><td>${esc(p.id)}</td><td>${esc(p.name)}<div class="muted small">авто: ${esc(p.auto)}</div></td>
+    <td><select class="dlgstyle" data-id="${esc(p.id)}">${styleOpts(true, '')}</select></td></tr>`).join('');
+  $('#styleDlg').showModal();
 }
+$('#dlgGo').onclick = async () => {
+  const styles = {}; document.querySelectorAll('.dlgstyle').forEach(s => { if (s.value) styles[s.dataset.id] = s.value; });
+  $('#dlgGo').disabled = true; $('#dlgMsg').textContent = 'Запускаю…';
+  try {
+    const r = await fetch(`/api/jobs/${DLG_JOB}/texts`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({style: $('#dlgStyle').value || 'default', styles, media: $('#dlgMedia').checked})});
+    const d = await r.json().catch(() => ({}));
+    if (r.ok) $('#styleDlg').close(); else $('#dlgMsg').textContent = d.detail || 'Помилка';
+  } catch (e) { $('#dlgMsg').textContent = 'Немає зв’язку з сервером: ' + e.message; }
+  $('#dlgGo').disabled = false; loadJobs();
+};
 let TZ_TOKEN = null;
 const tzFile = $('#tzFile');
 tzFile.onchange = () => $('#tzFname').textContent = tzFile.files[0]?.name || 'Оберіть файл';
@@ -208,6 +238,7 @@ $('#tzParseBtn').onclick = async () => {
   $('#tzTbl tbody').innerHTML = d.items.map((it, i) => `<tr><td><input type="checkbox" class="tzinc" data-i="${i}" checked></td>
     <td>${esc(it.sheet)}<div class="muted small">${esc(it.name)}</div></td>
     <td><select class="tzlang" data-i="${i}"><option value="ua" ${it.lang === 'ua' ? 'selected' : ''}>UA</option><option value="ru" ${it.lang === 'ru' ? 'selected' : ''}>RU</option></select></td>
+    <td><select class="tzstyle" data-i="${i}">${styleOpts(true, '')}</select>${it.auto ? `<div class="muted small">авто: ${esc(it.auto)}</div>` : ''}</td>
     <td>${esc(it.stats.headings)}</td><td>${esc(it.stats.keywords)}</td><td class="small">${esc(it.stats.volume)}</td></tr>`).join('');
   $('#tzList').classList.remove('hidden');
 };
@@ -215,10 +246,12 @@ $('#tzAll').onchange = e => document.querySelectorAll('.tzinc').forEach(c => c.c
 $('#tzTextsBtn').onclick = async () => {
   const selected = [...document.querySelectorAll('.tzinc:checked')].map(c => +c.dataset.i);
   const langs = {}; document.querySelectorAll('.tzlang').forEach(s => langs[s.dataset.i] = s.value);
+  const styles = {}; document.querySelectorAll('.tzstyle').forEach(s => { if (s.value) styles[s.dataset.i] = s.value; });
   const project = {domain: $('#domain').value.trim(), facts: $('#facts').value.trim(), notes: $('#notes').value.trim()};
   $('#tzTextsBtn').disabled = true; $('#tzTextsMsg').textContent = 'Запускаю…';
   try {
-    const r = await fetch('/api/tz/texts', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: TZ_TOKEN, selected, langs, project, title: $('#title').value.trim()})});
+    const r = await fetch('/api/tz/texts', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: TZ_TOKEN, selected, langs, project, title: $('#title').value.trim(),
+      style: $('#tzStyleAll').value || 'default', styles, media: $('#tzMedia').checked})});
     const d = await r.json().catch(() => ({detail: `Помилка сервера (HTTP ${r.status})`}));
     $('#tzTextsMsg').textContent = r.ok ? `Запущено (${selected.length} ТЗ) — прогрес праворуч.` : (d.detail || 'Помилка');
   } catch (e) { $('#tzTextsMsg').textContent = 'Немає зв’язку з сервером: ' + e.message; }

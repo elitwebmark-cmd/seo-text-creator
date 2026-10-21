@@ -5,7 +5,7 @@ from pathlib import Path
 import httpx
 
 from . import config, llm
-from . import norms
+from . import norms, styles
 
 REFERENCE = (Path(__file__).parent / "examples" / "text_serm_ua.md").read_text(encoding="utf-8")
 LANG_NAME = {"ua": "українською", "ru": "російською"}
@@ -19,7 +19,7 @@ WRITER_SYS = """Ти — досвідчений SEO-копірайтер і ре
 3. Виконай усе, що просить коментар: таблиці, нумеровані етапи, списки, формули з прикладом, порівняння.
 4. Ключі — у межах рекомендованої кількості входжень на весь текст (разом із заголовками). Головний ключ — у першому абзаці. Не став два ключі в одне речення. LSI — у межах діапазону, не перевищуй верхню межу. Чергуй синоніми, без переспаму.
    Пріоритети, якщо вимоги конфліктують: структура → загальний обсяг → ключі → LSI (нижні межі LSI — бажані, верхні — обов’язкові).
-5. Мова: пиши {lang_name}, природно, як носій мови; без кальок, русизмів/суржику (для UA), без канцеляризмів і «води». Короткі абзаци (до 3–4 речень). Тон — експертний, від імені компанії («ми»), звернення до читача на «ви»/«вы».
+5. Мова: пиши {lang_name}, природно, як носій мови; без кальок, русизмів/суржику (для UA), без канцеляризмів і «води». Короткі абзаци (до 3–4 речень). Тон — експертний, від імені компанії («ми»), звернення до читача на «ви»/«вы». Якщо в ТЗ є розділ «Стиль і тональність» — тон, ритм, лексику і прийоми бери з нього (він важливіший за тон еталона), але вимоги ТЗ (структура, обсяги, ключі) не порушуй.
 6. ГРАМОТНІСТЬ: жодних орфографічних, пунктуаційних, граматичних, стилістичних і смислових помилок. Узгодження слів, правильні відмінки, апострофи (UA), лапки «ялинки», тире — між частинами речення.
 7. ФАКТИ: використовуй лише факти про компанію з блоку «Про компанію». НЕ вигадуй ціни, кейси, цифри клієнта, імена, сертифікати, партнерства, гарантії, нові зобов’язання. Де ТЗ просить дані «УТОЧНИТИ» — став плейсхолдер у квадратних дужках: «[уточнити: вартість пакетів]». Ціни ринку й назви конкурентів у текст не переносити. Загальновідомі факти можна, умовні приклади розрахунків позначай як умовні.
 8. CTA: текст за коментарем, потім окремим рядком кнопка: **[Текст кнопки]**.
@@ -35,18 +35,22 @@ EDITOR_SYS = """Ти — шеф-редактор і коректор. Тобі �
 - виправляє ВСІ проблеми зі звіту (обсяг, заголовки, кількість ключів/LSI, довжина відповідей FAQ, орфографія);
 - не має орфографічних, граматичних, пунктуаційних, стилістичних і смислових помилок; мова — природна {lang_name};
 - зберігає структуру і дослівні заголовки з ТЗ, факти й плейсхолдери [уточнити], не додає вигаданих фактів;
+- тримає стиль і тональність із розділу «Стиль і тональність» (якщо він є): тон, довжина речень, лексика, фірмові прийоми; прибирає AI-штампи;
 - не погіршує текст: якщо пункт звіту — хибна тривога (наприклад, LanguageTool помиляється щодо терміна), залиш як є.
 Якщо треба скоротити — прибирай «воду», а не зміст. Якщо треба додати — додавай корисну конкретику, а не повтори.
 Пріоритети: структура → загальний обсяг і обсяги розділів → ключі → верхні межі LSI → нижні межі LSI."""
 
 
 # ---------------------------------------------------------------- ТЗ → текст для промпту
-def tz_brief(tz: dict, lang: str, project: dict, research: dict | None = None) -> str:
+def tz_brief(tz: dict, lang: str, project: dict, research: dict | None = None, style: str = "default") -> str:
     L = 0 if lang == "ru" else 1
     out = [f"## ТЗ ({lang.upper()}-версія): {tz.get('name_' + lang) or tz.get('name_ua')}",
            f"Загальний обсяг: {tz.get('volume')}",
            f"Шаблон: {tz.get('template')}"]
-    if project.get("facts"):
+    sb = styles.brief_block(style, lang, bool(project.get("media")))
+    if sb:
+        out.append("\n" + sb)
+    if project.get("facts") and not project.get("media"):
         out.append(f"\n## Про компанію (лише ці факти можна використовувати)\n{project['facts']}")
     if project.get("domain"):
         out.append(f"Сайт: {project['domain']}")
@@ -146,7 +150,7 @@ def section_text(md: str, title: str):
     return None
 
 
-def check(md: str, tz: dict, lang: str) -> dict:
+def check(md: str, tz: dict, lang: str, style: str = "default") -> dict:
     L = 0 if lang == "ru" else 1
     issues, warns = [], []
     plain = strip_md(md)
@@ -205,6 +209,12 @@ def check(md: str, tz: dict, lang: str) -> dict:
         dom = comp.split("/")[0].replace("www.", "")
         if dom and dom.split(".")[0] in plain.lower() and len(dom.split(".")[0]) > 3:
             issues.append(f"Згадка конкурента: {dom}")
+    styled = style in styles.STYLES
+    (issues if styled else warns).extend(styles.ai_markers(plain))
+    if styled:
+        ls = styles.long_sentences(plain)
+        if ls > 3:
+            warns.append(f"Речень понад 25 слів: {ls} — за правилами стилю краще поділити")
     placeholders = re.findall(r"\[(?:уточн|уточнить|уточнити)[^\]]*\]", md, re.I)
     return {"chars": n, "issues": issues, "warnings": warns, "keywords": kw_rep, "sections": sections,
             "placeholders": placeholders, "ok": not issues}
@@ -242,13 +252,13 @@ def _clean_md(s: str) -> str:
 
 
 SECTION_SYS = """Ти — редактор. Перепиши ОДИН розділ SEO-тексту так, щоб його обсяг (знаки з пробілами, без розмітки) потрапив у ціль.
-Збережи заголовки розділу й підрозділів дослівно, зміст, факти, плейсхолдери [уточнити], таблиці/списки й ключові слова з переліку. Скорочуй «воду» і повтори, а не суть; якщо треба додати — додай конкретику. Мова — природна {lang_name}, без помилок. Поверни лише markdown цього розділу."""
+Збережи заголовки розділу й підрозділів дослівно, зміст, факти, плейсхолдери [уточнити], таблиці/списки й ключові слова з переліку. Скорочуй «воду» і повтори, а не суть; якщо треба додати — додай конкретику. Збережи стиль і тональність оригіналу. Мова — природна {lang_name}, без помилок. Поверни лише markdown цього розділу."""
 
 
-async def fix_sections(md, tz, lang, brief_kw, log):
+async def fix_sections(md, tz, lang, brief_kw, log, style="default"):
     """Точкове виправлення обсягу: переписуємо найбільш відхилені розділи з чіткою ціллю."""
     import asyncio
-    rep = check(md, tz, lang)
+    rep = check(md, tz, lang, style)
     vr = norms.volume_range(tz)
     if not vr:
         return md
@@ -282,9 +292,12 @@ async def fix_sections(md, tz, lang, brief_kw, log):
     return md
 
 
-async def write_text(tz: dict, lang: str, project: dict, research: dict | None, log) -> dict:
+async def write_text(tz: dict, lang: str, project: dict, research: dict | None, log, style: str = "default") -> dict:
     import asyncio
-    brief = tz_brief(tz, lang, project, research)
+    style = styles.resolve(style, tz)
+    if style in styles.STYLES or project.get("media"):
+        log(f"{lang.upper()}: стиль — {styles.name(style)}" + (" + рамки медіа" if project.get("media") else ""))
+    brief = tz_brief(tz, lang, project, research, style)
     if config.MOCK:
         md = _mock_text(tz, lang)
     else:
@@ -293,15 +306,15 @@ async def write_text(tz: dict, lang: str, project: dict, research: dict | None, 
             llm.call_text, WRITER_SYS.replace("{lang_name}", LANG_NAME[lang]), brief + "\n\nНапиши текст сторінки.", 16000))
     rounds = 0
     while True:
-        rep = check(md, tz, lang)
+        rep = check(md, tz, lang, style)
         spell = await languagetool(md, lang)
         log(f"{lang.upper()}: перевірка — {len(rep['issues'])} проблем, {len(spell)} зауважень LanguageTool, {rep['chars']} зн.")
         if (rep["ok"] and not spell) or rounds >= config.TEXT_MAX_FIX_ROUNDS or config.MOCK:
             break
         rounds += 1
         if any(x.startswith("Загальний обсяг") for x in rep["issues"]):
-            md = await fix_sections(md, tz, lang, ", ".join(k for k, _ in tz.get(f"kw_{lang}", [])), log)
-            rep = check(md, tz, lang)
+            md = await fix_sections(md, tz, lang, ", ".join(k for k, _ in tz.get(f"kw_{lang}", [])), log, style)
+            rep = check(md, tz, lang, style)
         sec = [f"- «{t}»: {a} зн. (ціль {lo}–{hi})" for t, a, lo, hi in rep["sections"] if a and lo]
         report = "\n".join(["## Звіт перевірки", *[f"- {x}" for x in rep["issues"]],
                             *(["\n## Обсяги розділів"] + sec if sec else []),
@@ -318,14 +331,15 @@ async def write_text(tz: dict, lang: str, project: dict, research: dict | None, 
         fixed = _clean_md(await asyncio.to_thread(
             llm.call_text, EDITOR_SYS.replace("{lang_name}", LANG_NAME[lang]),
             f"{brief}\n\n## Звіт перевірки\n- Автоматичних проблем не знайдено. Зроби лише коректуру: орфографія, пунктуація, граматика, стиль, логіка. Нічого не скорочуй і не додавай.\n\n## Текст\n{md}", 16000))
-        if check(fixed, tz, lang)["ok"]:
+        if check(fixed, tz, lang, style)["ok"]:
             md = fixed
-    if not config.MOCK and not check(md, tz, lang)["ok"] and any(x.startswith("Загальний обсяг") for x in check(md, tz, lang)["issues"]):
-        md = await fix_sections(md, tz, lang, ", ".join(k for k, _ in tz.get(f"kw_{lang}", [])), log)
-        rep = check(md, tz, lang)
+    if not config.MOCK and not check(md, tz, lang, style)["ok"] and any(x.startswith("Загальний обсяг") for x in check(md, tz, lang, style)["issues"]):
+        md = await fix_sections(md, tz, lang, ", ".join(k for k, _ in tz.get(f"kw_{lang}", [])), log, style)
+        rep = check(md, tz, lang, style)
         spell = await languagetool(md, lang)
-    rep = check(md, tz, lang)
-    return {"lang": lang, "markdown": md, "report": rep, "spelling": spell, "rounds": rounds}
+    rep = check(md, tz, lang, style)
+    return {"lang": lang, "markdown": md, "report": rep, "spelling": spell, "rounds": rounds,
+            "style": style, "style_name": styles.name(style) + (" + рамки медіа" if project.get("media") else "")}
 
 
 def _mock_text(tz, lang):

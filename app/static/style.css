@@ -54,3 +54,8 @@ input,textarea,select{font-weight:400!important}
 .dlg-body{padding:14px 16px}.kws{cursor:pointer}.kws:hover{background:#f7f9ff}
 .tag{font-size:10px;padding:1px 6px;border-radius:8px;background:#fff3e0;color:var(--warn);margin-left:4px}
 .notes{font-size:12px;background:#f7f9ff;border-radius:8px;padding:8px 10px;margin-bottom:10px;white-space:pre-wrap}
+
+.stylebox{border:1px solid var(--line,#e3e3e3);border-radius:8px;padding:10px 12px;margin:10px 0}
+.stylebox select,.dlg-body select{max-width:100%}
+.pstyle,.tzstyle,.dlgstyle{max-width:230px;font-size:13px}
+.style-hint{margin:-4px 0 6px}

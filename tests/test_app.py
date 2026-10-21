@@ -180,3 +180,42 @@ def test_import_example_file_structure():
     r = tz_import.parse_xlsx(p.read_bytes())
     assert len(r) == 4 and all(x["lang"] == "ru" for x in r)
     assert r[0]["tz"]["blocks"][0][0] == "h1"
+
+
+def test_styles_catalog_detect_and_brief():
+    from app import styles, writer, prompts, llm
+    ids = [s["id"] for s in client.get("/api/styles").json()]
+    assert ids[:2] == ["default", "auto"] and set("ABVG") <= set(ids)
+    assert styles.detect({"name_ua": "SEO-аудит сайту", "kw_ua": [("seo аудит", 50)]}) == "A"
+    assert styles.detect({"name_ua": "Налаштування Google Ads", "kw_ua": [("контекстна реклама", 50)]}) == "B"
+    assert styles.detect({"name_ua": "SMM просування", "kw_ua": [("просування в instagram", 50)]}) == "V"
+    assert styles.detect({"name_ua": "Розробка сайтів", "kw_ua": [("створення сайту під ключ", 50)]}) == "G"
+    assert styles.detect({"name_ua": "Щось інше"}) == "default"
+    tz = llm.normalize(prompts.EXAMPLE)
+    b = writer.tz_brief(tz, "ru", {"facts": "12 років", "media": True}, None, "B")
+    assert "ПРАКТИК-РЕЗУЛЬТАТНИК" in b and "РЕДАКЦІЙНІ РАМКИ" in b and "російською" in b and "12 років" not in b
+    assert "Стиль і тональність" not in writer.tz_brief(tz, "ua", {}, None, "default")
+    md = "# X\n\nУ сучасному світі це не просто сайт, а інструмент. Це не просто текст, а продаж!"
+    assert any("AI-штампи" in x for x in writer.check(md, tz, "ua", "A")["issues"])
+    assert any("AI-штампи" in x for x in writer.check(md, tz, "ua")["warnings"])
+
+
+def test_texts_with_styles_per_page_and_batch():
+    import docx, io
+    body = {"project": {"domain": "elit-web.ua", "text_style": "auto"}, "formats": ["base", "texts"],
+            "pages": [{"name_ua": "SERM", "name_ru": "SERM", "ua": [["serm послуги", 40]], "ru": [["serm услуги", 150]], "style": "G"}]}
+    j = _wait(client.post("/api/jobs", json=body).json()["id"])
+    doc = [f for f in j["files"] if f.endswith(".docx")][0]
+    txt = "\n".join(p.text for p in docx.Document(io.BytesIO(client.get(f"/api/jobs/{j['id']}/files/{doc}").content)).paragraphs)
+    assert "Стиль: Г. Радник-стратег" in txt
+    pages = client.get(f"/api/jobs/{j['id']}/pages").json()
+    assert pages and pages[0]["auto"]
+    j2 = _wait(client.post(f"/api/jobs/{j['id']}/texts", json={"style": "A", "styles": {pages[0]["id"]: "B"}, "media": True}).json()["id"])
+    doc = [f for f in j2["files"] if f.endswith(".docx")][0]
+    txt = "\n".join(p.text for p in docx.Document(io.BytesIO(client.get(f"/api/jobs/{j2['id']}/files/{doc}").content)).paragraphs)
+    assert "Б. Практик-результатник + рамки медіа" in txt
+    r = client.post("/api/tz/parse", data={"text": "H1: SMM просування\nH2: Розділ один\nH2: Розділ два"}).json()
+    j3 = _wait(client.post("/api/tz/texts", json={"token": r["token"], "selected": [0], "style": "auto"}).json()["id"])
+    doc = [f for f in j3["files"] if f.endswith(".docx")][0]
+    txt = "\n".join(p.text for p in docx.Document(io.BytesIO(client.get(f"/api/jobs/{j3['id']}/files/{doc}").content)).paragraphs)
+    assert "В. Голос аудиторії" in txt
