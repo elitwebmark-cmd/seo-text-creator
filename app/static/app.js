@@ -15,6 +15,17 @@ function fillStyleSelects() {
   document.querySelectorAll('select.pstyle, select.tzstyle').forEach(sel => { const v = sel.value; sel.innerHTML = styleOpts(true, v); });
 }
 fetch('/api/styles').then(r => r.json()).then(d => { STYLES = d; fillStyleSelects(); });
+const TYPE_HINTS = {
+  landing: 'Сторінка послуги: короткі ємні абзаци, списки й таблиці там, де їх просить ТЗ.',
+  article: 'Стаття в блозі компанії: розгорнуті абзаци по 3–6 речень, списки лише там, де справді потрібні. ТЗ складається під статтю.',
+  media: 'Стаття для медіа: як стаття, плюс без згадок агенції, закликів замовити й фактів про компанію.'
+};
+document.querySelectorAll('select.type-sel').forEach(sel => {
+  try { const v = localStorage.getItem('tz_' + sel.id); if (v) sel.value = v; } catch(e){}
+  const hint = () => { const h = document.querySelector(`.type-hint[data-for="${sel.id}"]`); if (h) h.textContent = TYPE_HINTS[sel.value] || ''; };
+  sel.onchange = () => { hint(); try { localStorage.setItem('tz_' + sel.id, sel.value); } catch(e){} };
+  hint();
+});
 let SEM = {ua: [], ru: []};
 const FIELDS = ['domain','title','url_ru','url_ua','facts','notes'];
 
@@ -167,7 +178,7 @@ $('#genBtn').onclick = async () => {
   if (!pages.length) { $('#genMsg').textContent = 'Оберіть хоча б одну сторінку'; return; }
   if (!formats.length) { $('#genMsg').textContent = 'Оберіть формат: Advanced або Base'; return; }
   const project = {domain: $('#domain').value.trim(), url_ru_pattern: $('#url_ru').value.trim(), url_ua_pattern: $('#url_ua').value.trim(), facts: $('#facts').value.trim(), notes: $('#notes').value.trim(),
-    text_style: $('#styleAll').value || 'default', media: $('#mediaAll').checked};
+    text_style: $('#styleAll').value || 'default', text_type: $('#textTypeAll').value};
   $('#genBtn').disabled = true; $('#genMsg').textContent = 'Запускаю…';
   try {
     const r = await fetch('/api/jobs', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({title: $('#title').value.trim(), project, pages, formats})});
@@ -213,7 +224,7 @@ $('#dlgGo').onclick = async () => {
   $('#dlgGo').disabled = true; $('#dlgMsg').textContent = 'Запускаю…';
   try {
     const r = await fetch(`/api/jobs/${DLG_JOB}/texts`, {method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({style: $('#dlgStyle').value || 'default', styles, media: $('#dlgMedia').checked})});
+      body: JSON.stringify({style: $('#dlgStyle').value || 'default', styles, text_type: $('#dlgTextType').value})});
     const d = await r.json().catch(() => ({}));
     if (r.ok) $('#styleDlg').close(); else $('#dlgMsg').textContent = d.detail || 'Помилка';
   } catch (e) { $('#dlgMsg').textContent = 'Немає зв’язку з сервером: ' + e.message; }
@@ -251,7 +262,7 @@ $('#tzTextsBtn').onclick = async () => {
   $('#tzTextsBtn').disabled = true; $('#tzTextsMsg').textContent = 'Запускаю…';
   try {
     const r = await fetch('/api/tz/texts', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({token: TZ_TOKEN, selected, langs, project, title: $('#title').value.trim(),
-      style: $('#tzStyleAll').value || 'default', styles, media: $('#tzMedia').checked})});
+      style: $('#tzStyleAll').value || 'default', styles, text_type: $('#tzTextType').value})});
     const d = await r.json().catch(() => ({detail: `Помилка сервера (HTTP ${r.status})`}));
     $('#tzTextsMsg').textContent = r.ok ? `Запущено (${selected.length} ТЗ) — прогрес праворуч.` : (d.detail || 'Помилка');
   } catch (e) { $('#tzTextsMsg').textContent = 'Немає зв’язку з сервером: ' + e.message; }

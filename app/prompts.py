@@ -88,7 +88,11 @@ def _comp(p: dict) -> str:
 
 
 def build_user_prompt(page: dict, project: dict, research: dict) -> str:
+    from . import text_types
     parts = []
+    tb = text_types.tz_block(text_types.resolve(project))
+    if tb:
+        parts.append(tb + "\n")
     parts.append("## Про компанію / проєкт")
     parts.append(f"Домен: {project.get('domain') or '—'}")
     parts.append(f"Структура URL: RU — {project.get('url_ru_pattern') or 'корінь сайту'}, UA — {project.get('url_ua_pattern') or '/ua/'}")

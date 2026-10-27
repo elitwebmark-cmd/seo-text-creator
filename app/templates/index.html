@@ -80,7 +80,8 @@
       <label>Стиль і тональність текстів (для всіх сторінок; окремій сторінці можна задати свій у таблиці вище)
         <select id="styleAll" class="style-sel"></select></label>
       <div class="muted small style-hint" data-for="styleAll"></div>
-      <label class="chk"><input type="checkbox" id="mediaAll"> Редакційна стаття (рамки MoreThanMedia): без згадок агенції, закликів замовити й фактів про компанію</label>
+      <label>Тип тексту<select id="textTypeAll" class="type-sel"><option value="landing">SEO-текст для посадкової сторінки</option><option value="article">Стаття (блог компанії)</option><option value="media">Стаття для медіа (MoreThanMedia)</option></select></label>
+      <div class="muted small type-hint" data-for="textTypeAll"></div>
     </div>
     <button class="btn primary" id="genBtn">Згенерувати ТЗ</button>
     <span id="genMsg" class="muted"></span>
@@ -96,7 +97,8 @@
       <div class="stylebox">
         <label>Стиль і тональність (для всіх ТЗ; окремому ТЗ — у таблиці)<select id="tzStyleAll" class="style-sel"></select></label>
         <div class="muted small style-hint" data-for="tzStyleAll"></div>
-        <label class="chk"><input type="checkbox" id="tzMedia"> Редакційна стаття (рамки MoreThanMedia)</label>
+        <label>Тип тексту<select id="tzTextType" class="type-sel"><option value="landing">SEO-текст для посадкової сторінки</option><option value="article">Стаття (блог компанії)</option><option value="media">Стаття для медіа (MoreThanMedia)</option></select></label>
+        <div class="muted small type-hint" data-for="tzTextType"></div>
       </div>
       <button class="btn primary" id="tzTextsBtn">Написати тексти</button> <span id="tzTextsMsg" class="muted"></span>
     </div>
@@ -120,7 +122,8 @@
   <div class="dlg-body">
     <label>Стиль і тональність для всіх текстів<select id="dlgStyle" class="style-sel"></select></label>
     <div class="muted small style-hint" data-for="dlgStyle"></div>
-    <label class="chk"><input type="checkbox" id="dlgMedia"> Редакційна стаття (рамки MoreThanMedia)</label>
+    <label>Тип тексту<select id="dlgTextType" class="type-sel"><option value="landing">SEO-текст для посадкової сторінки</option><option value="article">Стаття (блог компанії)</option><option value="media">Стаття для медіа (MoreThanMedia)</option></select></label>
+    <div class="muted small type-hint" data-for="dlgTextType"></div>
     <div class="table-wrap"><table id="dlgTbl"><thead><tr><th>#</th><th>Сторінка</th><th>Стиль цієї сторінки</th></tr></thead><tbody></tbody></table></div>
     <p class="muted small">Кожен текст — окремі виклики Claude (≈ $0.2–0.4 за текст).</p>
     <button class="btn primary" id="dlgGo">Написати тексти</button> <span id="dlgMsg" class="muted"></span></div></dialog>

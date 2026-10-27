@@ -213,7 +213,9 @@ async def run_texts_job(jid: str):
     project = dict((src_job.get("params") or {}).get("project", {}))
     if "style" in params:  # стиль, обраний при запуску текстів, має пріоритет над стилем задачі ТЗ
         project["text_style"] = params.get("style") or "default"
-        project["media"] = bool(params.get("media"))
+        from . import text_types
+        project["text_type"] = text_types.valid(params.get("text_type"), bool(params.get("media")))
+        project["media"] = project["text_type"] == text_types.MEDIA
     per = params.get("styles") or {}
     items = [_json.loads(p.read_text(encoding="utf-8")) for p in sorted(src.glob("page_*.json"))]
     for it in items:  # JSON перетворює кортежі на списки
@@ -267,7 +269,9 @@ async def run_texts_import_job(jid: str):
         except Exception as ex:  # noqa: BLE001
             errors.append(f"{e['sheet']}: {ex}")
             db.log(jid, f"ПОМИЛКА [{e['sheet']}]: {ex}")
-    project = {**params.get("project", {}), "text_style": params.get("style") or "default", "media": bool(params.get("media"))}
+    from . import text_types
+    tt = text_types.valid(params.get("text_type"), bool(params.get("media")))
+    project = {**params.get("project", {}), "text_style": params.get("style") or "default", "text_type": tt, "media": tt == text_types.MEDIA}
     files = await write_texts(jid, items, project, outdir, errors) if items else []
     status = "done" if files and not errors else ("partial" if files else "error")
     db.update(jid, status=status, progress=1.0, files=files, error="\n".join(errors))

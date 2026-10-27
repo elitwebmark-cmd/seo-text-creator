@@ -87,7 +87,7 @@ def build(texts: list[dict], path):
     doc.add_heading("SEO-тексти", 0)
     p = doc.add_paragraph("Зміст: ")
     for t in texts:
-        doc.add_paragraph(f"{t['title']} — {t['lang'].upper()} ({t['report']['chars']} зн.)" + (f", стиль: {t['style_name']}" if t.get("style_name") else ""), style="List Bullet")
+        doc.add_paragraph(f"{t['title']} — {t['lang'].upper()} ({t['report']['chars']} зн.)" + (f", {t['text_type_name'][0].lower() + t['text_type_name'][1:]}" if t.get("text_type") and t["text_type"] != "landing" else "") + (f", стиль: {t['style_name']}" if t.get("style_name") else ""), style="List Bullet")
     for t in texts:
         doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
         meta = doc.add_paragraph()
@@ -102,7 +102,12 @@ def build(texts: list[dict], path):
         rep = t["report"]
         doc.add_heading("Перевірка тексту (службовий блок, не публікувати)", 3)
         doc.add_paragraph(f"Обсяг: {rep['chars']} зн. з пробілами. Раундів редагування: {t.get('rounds', 0)}."
+                          + (f" Тип: {t['text_type_name']}." if t.get("text_type_name") else "")
                           + (f" Стиль: {t['style_name']}." if t.get("style_name") else ""))
+        fs = rep.get("format") or {}
+        if fs:
+            doc.add_paragraph(f"Формат: {fs.get('paragraphs')} абзаців, у середньому {fs.get('avg_sentences')} речення / "
+                              f"{fs.get('avg_words')} слів на абзац; списків {fs.get('lists')} ({fs.get('list_share')}% тексту).")
         if rep["issues"]:
             doc.add_paragraph().add_run("Потребує уваги (не вдалося виправити автоматично):").bold = True
             for x in rep["issues"]:

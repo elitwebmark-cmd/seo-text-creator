@@ -10,7 +10,7 @@ from fastapi.templating import Jinja2Templates
 from itsdangerous import BadSignature, URLSafeSerializer
 from pydantic import BaseModel, Field
 
-from . import config, db, pipeline, semantics, styles
+from . import config, db, pipeline, semantics, styles, text_types
 
 BASE = Path(__file__).parent
 app = FastAPI(title="SEO ТЗ генератор")
@@ -154,7 +154,8 @@ def create_job(body: JobIn):
         if missing:
             raise HTTPException(400, "На сервері не задано: " + ", ".join(missing))
     title = body.title or f"{body.project.get('domain') or 'Проєкт'} — {len(pages)} стор."
-    project = {**body.project, "text_style": styles.valid(body.project.get("text_style")), "media": bool(body.project.get("media"))}
+    tt = text_types.valid(body.project.get("text_type"), bool(body.project.get("media")))
+    project = {**body.project, "text_style": styles.valid(body.project.get("text_style")), "text_type": tt, "media": tt == text_types.MEDIA}
     jid = db.create(title, {"project": project, "pages": pages, "formats": formats})
     pipeline.start(jid)
     return {"id": jid}
@@ -186,10 +187,16 @@ class StyleIn(BaseModel):
     style: str = "default"
     styles: dict = Field(default_factory=dict)
     media: bool = False
+    text_type: str = ""
 
 
 def _styles_map(m: dict) -> dict:
     return {str(k): styles.valid(v) for k, v in (m or {}).items() if v}
+
+
+@app.get("/api/text-types")
+def text_types_list():
+    return text_types.catalog()
 
 
 @app.get("/api/styles")
@@ -218,7 +225,8 @@ def texts_job(jid: str, body: StyleIn | None = None):
         raise HTTPException(400, "На сервері не задано ANTHROPIC_API_KEY")
     body = body or StyleIn()
     new = db.create("Тексти: " + src["title"], {"kind": "texts", "source": jid, "style": styles.valid(body.style),
-                                                 "styles": _styles_map(body.styles), "media": body.media})
+                                                 "styles": _styles_map(body.styles), "media": body.media,
+                                                 "text_type": text_types.valid(body.text_type, body.media)})
     pipeline.start(new)
     return {"id": new}
 
@@ -263,6 +271,7 @@ class TzTextsIn(BaseModel):
     style: str = "default"
     styles: dict = Field(default_factory=dict)
     media: bool = False
+    text_type: str = ""
 
 
 @app.post("/api/tz/texts")
@@ -275,7 +284,8 @@ def tz_texts(body: TzTextsIn):
         raise HTTPException(400, "На сервері не задано ANTHROPIC_API_KEY")
     jid = db.create(body.title or f"Тексти за готовими ТЗ ({len(body.selected)})",
                     {"kind": "texts_import", "token": body.token, "selected": body.selected, "langs": body.langs, "project": body.project,
-                     "style": styles.valid(body.style), "styles": _styles_map(body.styles), "media": body.media})
+                     "style": styles.valid(body.style), "styles": _styles_map(body.styles), "media": body.media,
+                                                 "text_type": text_types.valid(body.text_type, body.media)})
     pipeline.start(jid)
     return {"id": jid}
 

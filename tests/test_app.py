@@ -213,7 +213,7 @@ def test_texts_with_styles_per_page_and_batch():
     j2 = _wait(client.post(f"/api/jobs/{j['id']}/texts", json={"style": "A", "styles": {pages[0]["id"]: "B"}, "media": True}).json()["id"])
     doc = [f for f in j2["files"] if f.endswith(".docx")][0]
     txt = "\n".join(p.text for p in docx.Document(io.BytesIO(client.get(f"/api/jobs/{j2['id']}/files/{doc}").content)).paragraphs)
-    assert "Б. Практик-результатник + рамки медіа" in txt
+    assert "стиль: Б. Практик-результатник" in txt and "стаття для медіа (MoreThanMedia)" in txt
     r = client.post("/api/tz/parse", data={"text": "H1: SMM просування\nH2: Розділ один\nH2: Розділ два"}).json()
     j3 = _wait(client.post("/api/tz/texts", json={"token": r["token"], "selected": [0], "style": "auto"}).json()["id"])
     doc = [f for f in j3["files"] if f.endswith(".docx")][0]
@@ -291,3 +291,28 @@ def test_docx_has_hyperlink_and_sources():
     xml = d.element.xml
     assert "w:hyperlink" in xml and "thinkwithgoogle" in str([r.target_ref for r in d.part.rels.values()])
     assert any("Факти з джерелами" in p.text for p in d.paragraphs)
+
+
+def test_text_type_article_format_and_tz_prompt():
+    from app import text_types, writer, prompts, llm
+    tz = llm.normalize(prompts.EXAMPLE)
+    choppy = "# X\n\nКоротко.\n\n## Розділ\n\n- раз\n- два\n- три\n\nЩе.\n\nІ ще.\n"
+    rep = writer.check(choppy, tz, "ua", "default", [], {"text_type": "article"})
+    assert any("абзаци закороткі" in x for x in rep["issues"]) and any("забагато списків" in x for x in rep["issues"])
+    assert not any("Формат статті" in x for x in writer.check(choppy, tz, "ua", "default", [], {})["issues"])
+    b = writer.tz_brief(tz, "ua", {"text_type": "article"}, None, "A", [])
+    assert "Формат тексту: СТАТТЯ" in b and "Тип тексту: Стаття (блог компанії)" in b
+    p = prompts.build_user_prompt({"name_ua": "X", "ua": [("x", 10)]}, {"text_type": "media"}, {})
+    assert "ТИП ТЕКСТУ: СТАТТЯ ДЛЯ МЕДІА" in p
+    assert "ТИП ТЕКСТУ" not in prompts.build_user_prompt({"name_ua": "X", "ua": [("x", 10)]}, {}, {})
+    assert text_types.resolve({"media": True}) == "media" and [t["id"] for t in client.get("/api/text-types").json()] == ["landing", "article", "media"]
+
+
+def test_texts_job_with_text_type():
+    import docx, io
+    body = {"project": {"domain": "elit-web.ua", "text_type": "article"}, "formats": ["texts"],
+            "pages": [{"name_ua": "SERM", "ua": [["serm послуги", 40]]}]}
+    j = _wait(client.post("/api/jobs", json=body).json()["id"])
+    doc = [f for f in j["files"] if f.endswith(".docx")][0]
+    txt = "\n".join(p.text for p in docx.Document(io.BytesIO(client.get(f"/api/jobs/{j['id']}/files/{doc}").content)).paragraphs)
+    assert "Тип: Стаття (блог компанії)" in txt and "Формат:" in txt
