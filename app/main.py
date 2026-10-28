@@ -346,8 +346,10 @@ def download(jid: str, name: str):
     if not j or name not in (j.get("files") or []):
         raise HTTPException(404)
     path = config.DATA_DIR / "jobs" / jid / name
-    return FileResponse(path, filename=name,
-                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    mt = {".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          ".zip": "application/zip"}.get(path.suffix.lower(), "application/octet-stream")
+    return FileResponse(path, filename=name, media_type=mt)
 
 
 @app.get("/api/template.xlsx")

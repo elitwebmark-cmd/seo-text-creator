@@ -180,8 +180,9 @@ async def write_texts(jid, items, project, outdir, errors):
                                           style=style, facts=facts)
         done["n"] += 1
         db.update(jid, progress=round(base + (0.99 - base) * done["n"] / len(tasks), 3))
-        return {"id": it["id"], "title": name, "lang": lang, "url": tz.get(f"url_{lang}"), "title_tag": tz.get(f"title_{lang}"),
-                "desc": tz.get(f"desc_{lang}"), **res}
+        meta = res.get("meta") or {}
+        return {"id": it["id"], "title": name, "lang": lang, "url": tz.get(f"url_{lang}"),
+                "title_tag": meta.get("title") or tz.get(f"title_{lang}"), "desc": meta.get("description") or tz.get(f"desc_{lang}"), **res}
 
     db.log(jid, f"Пишу SEO-тексти: {len(tasks)} шт.")
     res = await asyncio.gather(*(one(it, l) for it, l in tasks), return_exceptions=True)
@@ -197,6 +198,15 @@ async def write_texts(jid, items, project, outdir, errors):
         return []
     texts.sort(key=lambda t: (t["id"], t["lang"] != "ua"))
     slug = (project.get("domain") or "texts").replace("https://", "").replace("/", "")[:40]
+    from . import text_types
+    if text_types.resolve(project) == text_types.MEDIA:
+        files = await asyncio.to_thread(docx_out.build_media, texts, outdir, "MoreThanMedia")
+        bad = [f"{t['id']} {t['lang'].upper()}" for t in texts if t["report"]["issues"]]
+        conv = [f"{t['id']} {t['lang'].upper()}: {', '.join(t['report']['converted'])}" for t in texts if t["report"].get("converted")]
+        if conv:
+            db.log(jid, "Блоки H3 оформлено списком (SEO-фахівцю: чи потрібні саме H3 у розмітці?): " + "; ".join(conv))
+        db.log(jid, "Статті готові: окремий Word на кожну + технічний Excel" + (f"; потребують уваги: {', '.join(bad)}" if bad else ""))
+        return files
     fn = f"Texts_{slug}.docx"
     await asyncio.to_thread(docx_out.build, texts, outdir / fn)
     bad = [f"{t['id']} {t['lang'].upper()}" for t in texts if t["report"]["issues"]]

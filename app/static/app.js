@@ -18,7 +18,7 @@ fetch('/api/styles').then(r => r.json()).then(d => { STYLES = d; fillStyleSelect
 const TYPE_HINTS = {
   landing: 'Сторінка послуги: короткі ємні абзаци, списки й таблиці там, де їх просить ТЗ.',
   article: 'Стаття в блозі компанії: розгорнуті абзаци по 3–6 речень, списки лише там, де справді потрібні. ТЗ складається під статтю.',
-  media: 'Стаття для медіа: як стаття, плюс без згадок агенції, закликів замовити й фактів про компанію.'
+  media: 'Стаття для медіа за правилами редакції MoreThanMedia: без агенції й комерції, без CTA (фінальний розділ перед FAQ), без риторичних питань. На виході — окремий Word на кожну статтю + технічний Excel (Title, Description, теги, ключі, джерела).'
 };
 document.querySelectorAll('select.type-sel').forEach(sel => {
   try { const v = localStorage.getItem('tz_' + sel.id); if (v) sel.value = v; } catch(e){}
@@ -201,7 +201,7 @@ async function loadJobs() {
     <div class="files">${(j.files || []).map(f => `<a href="/api/jobs/${j.id}/files/${encodeURIComponent(f)}">⬇ ${esc(f)}</a>`).join('')}</div>
     ${j.error ? `<div class="err">${esc(j.error)}</div>` : ''}
     ${(j.kind === 'semantics' || j.kind === 'volumes') && (j.status === 'done' || j.status === 'partial') ? `<button class="btn small" onclick="useSemantics('${j.id}')">Взяти в роботу</button>` : ''}
-    ${(j.kind === 'tz') && (j.status === 'done' || j.status === 'partial') && !(j.files || []).some(f => f.endsWith('.docx')) ? `<button class="btn small" onclick="writeTexts('${j.id}')">Написати тексти</button>` : ''}
+    ${(j.kind === 'tz') && (j.status === 'done' || j.status === 'partial') && !(j.files || []).some(f => f.endsWith('.docx') || f.endsWith('.zip')) ? `<button class="btn small" onclick="writeTexts('${j.id}')">Написати тексти</button>` : ''}
     <button class="btn ghost small" onclick="showLog('${j.id}')">Лог</button>
     <button class="btn ghost small" onclick="delJob('${j.id}')">Видалити</button></div>`).join('');
 }

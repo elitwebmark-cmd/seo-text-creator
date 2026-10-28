@@ -211,9 +211,10 @@ def test_texts_with_styles_per_page_and_batch():
     pages = client.get(f"/api/jobs/{j['id']}/pages").json()
     assert pages and pages[0]["auto"]
     j2 = _wait(client.post(f"/api/jobs/{j['id']}/texts", json={"style": "A", "styles": {pages[0]["id"]: "B"}, "media": True}).json()["id"])
-    doc = [f for f in j2["files"] if f.endswith(".docx")][0]
-    txt = "\n".join(p.text for p in docx.Document(io.BytesIO(client.get(f"/api/jobs/{j2['id']}/files/{doc}").content)).paragraphs)
-    assert "стиль: Б. Практик-результатник" in txt and "стаття для медіа (MoreThanMedia)" in txt
+    import openpyxl
+    tech = [f for f in j2["files"] if f.startswith("Tech_")][0]
+    ws = openpyxl.load_workbook(io.BytesIO(client.get(f"/api/jobs/{j2['id']}/files/{tech}").content))["Статті"]
+    assert "Б. Практик-результатник" in [c.value for c in ws[2]]
     r = client.post("/api/tz/parse", data={"text": "H1: SMM просування\nH2: Розділ один\nH2: Розділ два"}).json()
     j3 = _wait(client.post("/api/tz/texts", json={"token": r["token"], "selected": [0], "style": "auto"}).json()["id"])
     doc = [f for f in j3["files"] if f.endswith(".docx")][0]
@@ -316,3 +317,44 @@ def test_texts_job_with_text_type():
     doc = [f for f in j["files"] if f.endswith(".docx")][0]
     txt = "\n".join(p.text for p in docx.Document(io.BytesIO(client.get(f"/api/jobs/{j['id']}/files/{doc}").content)).paragraphs)
     assert "Тип: Стаття (блог компанії)" in txt and "Формат:" in txt
+
+
+def test_media_articles_output_and_tz_adaptation():
+    import docx, io, zipfile, openpyxl
+    from docx.enum.text import WD_ALIGN_PARAGRAPH as AL
+    from app import text_types, prompts, llm
+    tz = llm.normalize(prompts.EXAMPLE)
+    tz["blocks"] = tz["blocks"] + [("h2", "Услуги SERM от агентства: что входит и сколько стоит", "Послуги SERM від агенції: що входить і скільки коштує"),
+                                   ("c", "пакети й ціни"), ("h3", "Як працює?", "Як працює?")]
+    a = text_types.adapt_tz(tz, "media")
+    kinds = [b[0] for b in a["blocks"]]
+    assert "cta" not in kinds and kinds[-1] == "q" or kinds.index("faq") > max(i for i, k in enumerate(kinds) if k == "h2")
+    assert not any("агенції" in (b[2] if len(b) > 2 else "") for b in a["blocks"])
+    assert not any(b[0] in ("h2", "h3") and b[2].endswith("?") for b in a["blocks"])
+    assert any("CTA" in d for d in a["_dropped"]) and any("агенції" in d for d in a["_dropped"])
+    body = {"project": {"domain": "elit-web.ua", "text_type": "media"}, "formats": ["texts"],
+            "pages": [{"name_ua": "SERM", "ua": [["serm послуги", 40]]}]}
+    j = _wait(client.post("/api/jobs", json=body).json()["id"])
+    z = [f for f in j["files"] if f.endswith(".zip")][0]
+    zf = zipfile.ZipFile(io.BytesIO(client.get(f"/api/jobs/{j['id']}/files/{z}").content))
+    docs = [n for n in zf.namelist() if n.endswith(".docx")]
+    assert docs and any(n.startswith("Tech_") for n in zf.namelist()) and "elit" not in z.lower()
+    d = docx.Document(io.BytesIO(zf.read(docs[0])))
+    first = next(p for p in d.paragraphs if p.text.strip())
+    assert first.style.name == "Heading 1"
+    assert all(p.alignment == AL.JUSTIFY for p in d.paragraphs if p.text.strip() and not p.style.name.startswith("Heading"))
+    assert not any(p.text.strip().upper() == "CTA" for p in d.paragraphs)
+    wb = openpyxl.load_workbook(io.BytesIO(zf.read([n for n in zf.namelist() if n.startswith("Tech_")][0])))
+    assert {"Статті", "Ключі", "Джерела"} <= set(wb.sheetnames)
+
+
+def test_h3_block_as_list_is_accepted_for_articles():
+    from app import writer, prompts, llm
+    tz = llm.normalize(prompts.EXAMPLE)
+    tz["blocks"] = [("h1", "Т", "Т"), ("h2", "Типи", "Типи"), ("h3", "Перший тип?", "Перший тип?"), ("h3", "Другий тип", "Другий тип")]
+    md = "# Т\n\n## Типи\n\nВступ.\n\n- **Перший тип.** Пояснення першого.\n- **Другий тип.** Пояснення другого.\n\nПерехід далі."
+    rep = writer.check(md, tz, "ua", "default", [], {"text_type": "article"})
+    assert not any("Немає заголовка" in x for x in rep["issues"]) and rep["converted"] == ["Типи"], rep["issues"]
+    mixed = "# Т\n\n## Типи\n\n### Перший тип\n\nТекст.\n\n- **Другий тип.** Пояснення."
+    assert any("змішувати" in x for x in writer.check(mixed, tz, "ua", "default", [], {"text_type": "article"})["issues"])
+    assert any("Немає заголовка" in x for x in writer.check(md, tz, "ua", "default", [], {})["issues"])

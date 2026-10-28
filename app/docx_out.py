@@ -42,14 +42,25 @@ def _runs(par, text):
                 _link(par, label, seg, bold)
 
 
-def _md(doc, md):
+def _md(doc, md, justify=False):
+    from docx.enum.text import WD_ALIGN_PARAGRAPH as AL
+    J = AL.JUSTIFY if justify else None
+
+    def para(style=None):
+        p = doc.add_paragraph(style=style) if style else doc.add_paragraph()
+        if J is not None:
+            p.alignment = J
+        return p
+
     lines = md.splitlines()
     i = 0
     while i < len(lines):
         ln = lines[i].rstrip()
         m = re.match(r"^(#{1,3})\s+(.+)$", ln)
         if m:
-            doc.add_heading(m.group(2).strip(), level=len(m.group(1)))
+            h = doc.add_heading(m.group(2).strip(), level=len(m.group(1)))
+            if justify:
+                h.alignment = AL.LEFT
         elif ln.startswith("|"):
             rows = []
             while i < len(lines) and lines[i].strip().startswith("|"):
@@ -63,19 +74,96 @@ def _md(doc, md):
                 t.style = "Table Grid"
                 for ri, r in enumerate(rows):
                     for ci, v in enumerate(r):
-                        cell = t.cell(ri, ci)
-                        cell.text = re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r"\1 (\2)", v.replace("**", ""))
-                        if ri == 0:
-                            for p in cell.paragraphs:
-                                for run in p.runs:
-                                    run.bold = True
+                        cp = t.cell(ri, ci).paragraphs[0]
+                        v = v.replace("**", "")
+                        _runs(cp, f"**{v}**" if ri == 0 and v else v)
+                        if justify:
+                            cp.alignment = AL.CENTER if ri == 0 else AL.JUSTIFY
         elif re.match(r"^\s*[-*•]\s+", ln):
-            _runs(doc.add_paragraph(style="List Bullet"), re.sub(r"^\s*[-*•]\s+", "", ln))
+            _runs(para("List Bullet"), re.sub(r"^\s*[-*•]\s+", "", ln))
         elif re.match(r"^\s*\d+[.)]\s+", ln):
-            _runs(doc.add_paragraph(style="List Number"), re.sub(r"^\s*\d+[.)]\s+", "", ln))
+            _runs(para("List Number"), re.sub(r"^\s*\d+[.)]\s+", "", ln))
         elif ln.strip():
-            _runs(doc.add_paragraph(), ln.strip())
+            _runs(para(), ln.strip())
         i += 1
+
+
+def _base_doc():
+    doc = Document()
+    st = doc.styles["Normal"]
+    st.font.name = "Arial"
+    st.font.size = Pt(11)
+    return doc
+
+
+def build_article(t: dict, path):
+    """Чиста стаття для медіа: файл починається одразу з H1, без змісту, мета й службових блоків."""
+    doc = _base_doc()
+    _md(doc, t["markdown"], justify=True)
+    doc.save(path)
+
+
+def _slug(s: str) -> str:
+    s = re.sub(r"[^\w\s-]", "", (s or "").lower(), flags=re.U)
+    return re.sub(r"[\s_-]+", "-", s).strip("-")[:60] or "stattia"
+
+
+def build_media(texts: list[dict], outdir, slug: str) -> list[str]:
+    """Медіа: окремий .docx на кожну статтю × мову + технічний Excel; усе разом у zip. Повертає імена файлів."""
+    import zipfile
+    import openpyxl
+    from openpyxl.styles import Alignment, Font
+    names = []
+    for t in texts:
+        h1 = next((m.group(1) for m in re.finditer(r"^#\s+(.+)$", t["markdown"], re.M)), t["title"])
+        fn = f"{t['id']}_{t['lang']}_{_slug(h1)}.docx"
+        build_article(t, outdir / fn)
+        t["file"] = fn
+        names.append(fn)
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Статті"
+    head = ["#", "Мова", "Файл", "H1", "Title", "Description", "Теги", "Обсяг, зн.", "Стиль", "H3 → список (блоки)",
+            "Прибрано з ТЗ", "Потребує уваги", "Рекомендації"]
+    ws.append(head)
+    for t in texts:
+        rep, meta = t["report"], t.get("meta") or {}
+        h1 = next((m.group(1) for m in re.finditer(r"^#\s+(.+)$", t["markdown"], re.M)), t["title"])
+        ws.append([t["id"], t["lang"].upper(), t.get("file", ""), h1, meta.get("title") or t.get("title_tag") or "",
+                   meta.get("description") or t.get("desc") or "", ", ".join(meta.get("tags") or []), rep["chars"],
+                   t.get("style_name", ""), "; ".join(rep.get("converted") or []), "; ".join(rep.get("dropped") or []),
+                   "\n".join(rep["issues"]) or "—", "\n".join(rep.get("warnings") or [])])
+    ks = wb.create_sheet("Ключі")
+    ks.append(["#", "Мова", "Тип", "Ключ / LSI", "Входжень", "Норма"])
+    for t in texts:
+        for kind, k, n, f in t["report"].get("keywords") or []:
+            ks.append([t["id"], t["lang"].upper(), kind, k, n, str(f)])
+    fs = wb.create_sheet("Джерела")
+    fs.append(["#", "Мова", "Факт", "У тексті", "Організація", "Рік", "Географія", "URL", "Цитата"])
+    for t in texts:
+        used = set(t["report"].get("facts_used") or [])
+        for f in t.get("facts") or []:
+            fs.append([t["id"], t["lang"].upper(), f["id"], "так" if f["id"] in used else "—", f.get("org"), f.get("year"),
+                       f.get("geo"), f.get("url"), f.get("quote")])
+    ls = wb.create_sheet("Мовні зауваження")
+    ls.append(["#", "Мова", "Зауваження LanguageTool (перевірте вручну)"])
+    for t in texts:
+        for x in t.get("spelling") or []:
+            ls.append([t["id"], t["lang"].upper(), x])
+    for sh in wb.worksheets:
+        for c in sh[1]:
+            c.font = Font(bold=True)
+        for col in sh.columns:
+            sh.column_dimensions[col[0].column_letter].width = 22
+            for c in col[1:]:
+                c.alignment = Alignment(wrap_text=True, vertical="top")
+    tech = f"Tech_{slug}.xlsx"
+    wb.save(outdir / tech)
+    zname = f"Articles_{slug}.zip"
+    with zipfile.ZipFile(outdir / zname, "w", zipfile.ZIP_DEFLATED) as z:
+        for fn in names + [tech]:
+            z.write(outdir / fn, fn)
+    return [zname, tech]
 
 
 def build(texts: list[dict], path):
@@ -98,7 +186,7 @@ def build(texts: list[dict], path):
             mp = doc.add_paragraph(); mp.add_run("Title: ").bold = True; mp.add_run(t["title_tag"])
         if t.get("desc"):
             mp = doc.add_paragraph(); mp.add_run("Description: ").bold = True; mp.add_run(t["desc"])
-        _md(doc, t["markdown"])
+        _md(doc, t["markdown"], justify=t.get("text_type") in ("article", "media"))
         rep = t["report"]
         doc.add_heading("Перевірка тексту (службовий блок, не публікувати)", 3)
         doc.add_paragraph(f"Обсяг: {rep['chars']} зн. з пробілами. Раундів редагування: {t.get('rounds', 0)}."

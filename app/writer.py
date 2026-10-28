@@ -14,18 +14,18 @@ LT_LANG = {"ua": "uk-UA", "ru": "ru-RU"}
 WRITER_SYS = """Ти — досвідчений SEO-копірайтер і редактор digital-агенції. Пишеш продаючі, експертні SEO-тексти для сторінок послуг суворо за технічним завданням (ТЗ).
 
 ПРАВИЛА
-1. Структура — точно за ТЗ: усі H1/H2/H3 дослівно, у тому самому порядку, нічого не додавай і не прибирай. «CTA» і «FAQ» — це службові розділи (## CTA, ## FAQ).
+1. Структура — точно за ТЗ: усі H1/H2/H3 дослівно, у тому самому порядку, нічого не додавай і не прибирай. «CTA» і «FAQ» — це службові розділи (## CTA, ## FAQ). Винятки для статей — у розділі «Формат тексту» (блоки коротких H3 → список; у медіа CTA немає, а перед FAQ — фінальний розділ).
 2. Обсяг кожного блоку — за коментарем ТЗ (±15%). Загальний обсяг — строго в межах, указаних у ТЗ (знаки з пробілами, без розмітки).
 3. Виконай усе, що просить коментар: таблиці, нумеровані етапи, списки, формули з прикладом, порівняння.
-4. Ключі — у межах рекомендованої кількості входжень на весь текст (разом із заголовками). Головний ключ — у першому абзаці. Не став два ключі в одне речення. LSI — у межах діапазону, не перевищуй верхню межу. Чергуй синоніми, без переспаму.
+4. Ключі — у межах рекомендованої кількості входжень на весь текст (разом із заголовками). Головний ключ — у першому абзаці (у статтях — природно в першому-другому абзаці). Не став два ключі в одне речення. LSI — у межах діапазону, не перевищуй верхню межу. Чергуй синоніми, без переспаму.
    Пріоритети, якщо вимоги конфліктують: структура → загальний обсяг → ключі → LSI (нижні межі LSI — бажані, верхні — обов’язкові).
 5. Мова: пиши {lang_name}, природно, як носій мови; без кальок, русизмів/суржику (для UA), без канцеляризмів і «води». Довжина абзаців і кількість списків — за розділом «Формат тексту» з ТЗ. Тон — експертний, від імені компанії («ми»), звернення до читача на «ви»/«вы». Якщо в ТЗ є розділ «Стиль і тональність» — тон, ритм, лексику і прийоми бери з нього (він важливіший за тон еталона), але вимоги ТЗ (структура, обсяги, ключі) не порушуй.
 6. ГРАМОТНІСТЬ: жодних орфографічних, пунктуаційних, граматичних, стилістичних і смислових помилок. Узгодження слів, правильні відмінки, апострофи (UA), лапки «ялинки», тире — між частинами речення.
 7. ФАКТИ І ЦИФРИ: про компанію — лише факти з блоку «Про компанію». Статистика ринку, досліджень, платформ — ЛИШЕ з розділу «Перевірені факти», з посиланням на джерело (markdown-посилання). Інших статистичних цифр, відсотків і «даних досліджень» з пам'яті НЕ пиши. Дозволені також числа з ТЗ, з «Про компанію» та умовні розрахунки з позначкою «умовно» / «для прикладу». НЕ вигадуй ціни, кейси, цифри клієнта, імена, сертифікати, партнерства, гарантії, терміни, нові зобов’язання. Ціни ринку й назви конкурентів у текст не переносити.
    ТЕКСТ ГОТОВИЙ ДО ПУБЛІКАЦІЇ: жодних плейсхолдерів, квадратних дужок «[уточнити…]», TODO, «XX». Якщо ТЗ просить даних, яких немає (ціни, терміни, кейси, кількість клієнтів), напиши цей фрагмент без конкретних чисел, але корисно й чесно: від чого залежить вартість, що входить у роботу, як визначаються терміни, що клієнт отримає на виході.
-8. CTA: текст за коментарем, потім окремим рядком кнопка: **[Текст кнопки]**.
+8. CTA: текст за коментарем, потім окремим рядком кнопка: **[Текст кнопки]**. (У статтях для медіа CTA немає — див. «Рамка медіа».)
 9. FAQ: кожне питання — ### H3, відповідь 250–400 знаків, по суті, без повтору тексту вище.
-10. Без емодзі. Таблиці — у markdown. Жодних заголовків, яких немає в ТЗ (структуру всередині розділу роби абзацами, а списками й таблицями — так, як велить розділ «Формат тексту»).
+10. Без емодзі. Таблиці — у markdown. Жодних заголовків, яких немає в ТЗ, крім фінального розділу медіа-статті (структуру всередині розділу роби абзацами, а списками й таблицями — так, як велить розділ «Формат тексту»).
 11. Посилання — лише на URL із «Перевірених фактів», у форматі [назва джерела](URL).
 
 ФОРМАТ ВІДПОВІДІ: лише markdown-текст сторінки, без пояснень. # — H1, ## — H2 (а також «## CTA», «## FAQ»), ### — H3 і питання FAQ.
@@ -37,7 +37,8 @@ EDITOR_SYS = """Ти — шеф-редактор і коректор. Тобі �
 ЯК ПРАЦЮВАТИ:
 - Виправляй ТОЧКОВО: змінюй лише речення й абзаци, яких стосуються пункти звіту. Решту тексту залиш дослівно — не переписуй те, що вже правильно, щоб не з'явилися нові помилки.
 - Виправ УСІ пункти звіту: обсяг, заголовки, ключі/LSI, FAQ, невиконані вимоги коментарів ТЗ, смислові й фактичні помилки, неперевірені цифри, плейсхолдери, орфографію.
-- Структура: усі заголовки ТЗ дослівно і в тому самому порядку; заголовків, яких немає в ТЗ, бути не повинно.
+- Структура: усі заголовки ТЗ дослівно і в тому самому порядку; заголовків, яких немає в ТЗ, бути не повинно (винятки для статей — у «Формат тексту»: короткі блоки H3 → список із жирними назвами пунктів; у медіа — фінальний розділ перед FAQ замість CTA).
+- Для статей виконуй «Правила редакції»: без риторичних питань, «Так/Ні» на початку відповідей, жирного в абзацах, більше одного тире в реченні, слів-переходів на початку абзаців поспіль, цифр і термінів без джерела.
 - Цифри статистики — лише з «Перевірених фактів» і з посиланням; неперевірену цифру прибери (переформулюй думку без числа). Факти про компанію — лише з «Про компанію».
 - Жодних плейсхолдерів і квадратних дужок «[уточнити…]»: замість них — коректне формулювання без вигаданих даних.
 - Посилання [джерело](URL) і кнопку CTA **[…]** збережи.
@@ -63,7 +64,7 @@ def tz_brief(tz: dict, lang: str, project: dict, research: dict | None = None, s
     out.append("\n" + text_types.format_block(ttype))
     if project.get("facts") and ttype != text_types.MEDIA:
         out.append(f"\n## Про компанію (лише ці факти можна використовувати)\n{project['facts']}")
-    if project.get("domain"):
+    if project.get("domain") and ttype != text_types.MEDIA:
         out.append(f"Сайт: {project['domain']}")
     if project.get("notes"):
         out.append(f"Додаткові вимоги: {project['notes']}")
@@ -259,15 +260,20 @@ def fact_checks(md: str, tz: dict, lang: str, facts: list | None, project: dict 
     return issues, warns, sorted(used)
 
 
-def structure_checks(md: str, tz: dict, lang: str):
+def structure_checks(md: str, tz: dict, lang: str, ttype: str = "landing"):
     """Зайві заголовки, H1, головний ключ, вимоги коментарів (таблиця / етапи / список)."""
     issues, warns = [], []
+    article = text_types.is_article(ttype)
     secs = tz_sections(tz, lang)
     known = {_norm_h(t) for _, t, _ in secs} | {_norm_h(b[1 + (0 if lang == "ru" else 1)]) for b in tz["blocks"] if b[0] == "q"}
     hs = headings(md)
     if sum(1 for lvl, _ in hs if lvl == 1) != 1:
         issues.append("У тексті має бути рівно один H1")
+    body_h2 = [h for lvl, h in hs if lvl == 2 and h.strip().upper() not in ("FAQ", "CTA")]
+    final_h2 = body_h2[-1] if (ttype == text_types.MEDIA and body_h2) else None
     for lvl, h in hs:
+        if h == final_h2 and lvl == 2:
+            continue  # фінальний розділ медіа-статті може бути відсутнім у ТЗ
         if _norm_h(h) not in known:
             (issues if lvl <= 2 else warns).append(f"Заголовок H{lvl} «{h}» відсутній у ТЗ — прибрати (зробити абзацом / жирним рядком)")
     if re.search(r"^#{4,}\s", md, re.M):
@@ -275,9 +281,13 @@ def structure_checks(md: str, tz: dict, lang: str):
     kws = tz.get(f"kw_{lang}") or []
     if kws:
         body = re.split(r"^#\s+.+$", md, maxsplit=1, flags=re.M)
-        first = next((p for p in re.split(r"\n\s*\n", body[-1]) if p.strip() and not p.lstrip().startswith("#")), "")
+        paras = [p for p in re.split(r"\n\s*\n", body[-1]) if p.strip() and not p.lstrip().startswith("#")]
+        first = " ".join(paras[:2] if article else paras[:1])
         if first and not _count(strip_md(first), kws[0][0]):
-            issues.append(f"Головний ключ «{kws[0][0]}» має бути в першому абзаці")
+            if article:
+                warns.append(f"Головний ключ «{kws[0][0]}» бажано природно згадати в перших двох абзацах")
+            else:
+                issues.append(f"Головний ключ «{kws[0][0]}» має бути в першому абзаці")
     for lvl, title, comments in secs:
         c = " ".join(comments)
         if not c or NEG_RE.search(c):
@@ -314,19 +324,40 @@ def check(md: str, tz: dict, lang: str, style: str = "default", facts: list | No
         if vol_bad and act and lo and hi and (act > hi * 1.15 or act < lo * 0.85):
             issues.append(f"Розділ «{title}»: {act} зн., ціль {lo}–{hi}")
     # заголовки
-    want = []
+    ttype = text_types.resolve(project)
+    article = text_types.is_article(ttype)
+    want, parent = [], None
     for b in tz["blocks"]:
         if b[0] in ("h1", "h2", "h3", "q"):
-            want.append(b[1 + L].strip())
+            want.append((b[1 + L].strip(), b[0], parent))
+            if b[0] in ("h1", "h2"):
+                parent = b[1 + L].strip()
         elif b[0] in ("cta", "faq"):
-            want.append(b[0].upper())
-    hn = [_norm_h(h) for _, h in headings(md)]
-    pos = -1
-    for w in want:
-        try:
-            pos = hn.index(_norm_h(w), pos + 1)
-        except ValueError:
+            want.append((b[0].upper(), b[0], parent))
+            parent = b[0].upper()
+    seq = []  # (нормалізований текст, 'h' — заголовок | 'lead' — жирна назва пункту списку)
+    for line in md.splitlines():
+        m = re.match(r"^(#{1,3})\s+(.+)$", line.strip())
+        if m:
+            seq.append((_norm_h(m.group(2)), "h"))
+            continue
+        m = re.match(r"^\s*(?:[-*•]|\d+[.)])\s+\*\*([^*]+)\*\*", line)
+        if article and m:
+            seq.append((_norm_h(m.group(1)), "lead"))
+    pos, converted = -1, {}
+    for w, kind, par in want:
+        nw = _norm_h(w)
+        j = next((k for k in range(pos + 1, len(seq)) if seq[k][0] == nw and (seq[k][1] == "h" or kind == "h3")), None)
+        if j is None:
             issues.append(f"Немає заголовка (або порушено порядок): «{w}»")
+            continue
+        pos = j
+        if kind == "h3":
+            converted.setdefault(par, []).append(seq[j][1] == "lead")
+    conv = [p for p, v in converted.items() if v and all(v)]
+    for p, v in converted.items():
+        if any(v) and not all(v):
+            issues.append(f"Блок «{p}»: частина H3 — підзаголовки, частина — пункти списку; змішувати не можна")
     # ключі та LSI — за ефективними нормами
     kw_rep = []
     for kind, k, lo, hi, f, in_head, note in norms.effective(tz, lang):
@@ -338,7 +369,7 @@ def check(md: str, tz: dict, lang: str, style: str = "default", facts: list | No
         if total > hi:
             issues.append(f"{kind} «{k}»: {total} входжень, норма {lo}–{hi} — прибрати щонайменше {total - hi} (у заголовках {in_head}, їх не чіпати)")
         elif total < lo:
-            (issues if kind == "ключ" else warns).append(f"{kind} «{k}»: {total} входжень, норма {lo}–{hi} — додати {lo - total}")
+            (issues if kind == "ключ" and not text_types.is_article(text_types.resolve(project)) else warns).append(f"{kind} «{k}»: {total} входжень, норма {lo}–{hi} — додати {lo - total}")
     # FAQ
     faq = re.split(r"^##\s+FAQ\s*$", md, flags=re.M | re.I)
     if len(faq) > 1:
@@ -354,7 +385,10 @@ def check(md: str, tz: dict, lang: str, style: str = "default", facts: list | No
         if dom and dom.split(".")[0] in plain.lower() and len(dom.split(".")[0]) > 3:
             issues.append(f"Згадка конкурента: {dom}")
     fi, fw, used = fact_checks(md, tz, lang, facts, project)
-    si, sw = structure_checks(md, tz, lang)
+    si, sw = structure_checks(md, tz, lang, ttype)
+    ai, aw = text_types.article_checks(md, ttype, [k for k, _ in tz.get(f"kw_{lang}", [])], lang)
+    si += ai
+    sw += aw
     issues += si + fi
     warns += sw + fw
     if facts and style in styles.STYLES:
@@ -373,7 +407,7 @@ def check(md: str, tz: dict, lang: str, style: str = "default", facts: list | No
             warns.append(f"Речень понад 25 слів: {ls} — за правилами стилю краще поділити")
     placeholders = [m.group(0) for m in PLACEHOLDER_RE.finditer(md)]
     return {"chars": n, "issues": list(dict.fromkeys(issues)), "warnings": list(dict.fromkeys(warns)), "keywords": kw_rep,
-            "sections": sections, "placeholders": placeholders, "facts_used": used, "format": fstats, "ok": not issues}
+            "sections": sections, "placeholders": placeholders, "facts_used": used, "format": fstats, "converted": conv, "ok": not issues}
 
 
 async def languagetool(md: str, lang: str) -> list[str]:
@@ -467,6 +501,7 @@ AUDIT_SYS = """Ти — прискіпливий шеф-редактор. Пер
 4. Готовність: жодних плейсхолдерів, «[уточнити]», недописаних речень, звернень до копірайтера.
 5. Мова: орфографія, граматика, пунктуація, суржик/кальки, канцелярит; стиль і тональність — за розділом «Стиль і тональність» (якщо є).
 6. Формат — за розділом «Формат тексту»: для статті «рубаний» текст (дрібні абзаци по 1–2 речення, пояснення списками, пункти-фрагменти) — critical із зазначенням розділів.
+7. Для статей — «Правила редакції» і «Формат тексту» з брифу: риторичні питання, «Так/Ні» на початку, жирний в абзацах, абзаци-переліки й констатації без висновку, цифри не по темі тези чи одне джерело на кілька тез, пороги сервісів як норми Google, інтерпретація як позиція платформи, вигадані приклади без позначки «Умовний приклад», повтори між розділами, FAQ, що переказує тіло; для медіа — рамка медіа.
 НЕ перевіряй загальний обсяг і кількість входжень ключів — це робить автоматика.
 Повертай ЛИШЕ реальні порушення, кожне — з конкретним фрагментом і способом виправлення. Не вимагай того, чого немає в ТЗ, і не пропонуй смакових правок. critical — порушення ТЗ, фактів, смислу, мовні помилки; minor — дрібні стилістичні покращення. Якщо все добре — порожній список."""
 
@@ -502,11 +537,41 @@ def _report(rep, spell, aud):
                       "обсяг розділів тримай у цілях; змінюй лише проблемні фрагменти."])
 
 
+META_TOOL = {
+    "name": "submit_meta",
+    "description": "Title, Description і теги статті",
+    "input_schema": {"type": "object", "properties": {
+        "title": {"type": "string", "description": "до 60–65 знаків, з головним ключем, інформаційний"},
+        "description": {"type": "string", "description": "до 155–160 знаків, про що стаття і яку користь дає"},
+        "tags": {"type": "array", "items": {"type": "string"}, "description": "3–6 тегів"}},
+        "required": ["title", "description", "tags"]},
+}
+META_SYS = """Ти — редактор медіа MoreThanMedia. Склади Title, Description і теги для статті {lang_name}.
+Без бренду Elit-Web та будь-яких агенцій, без комерційних слів («послуги», «замовити», «консультація», «ціна», «безкоштовно»), без закликів. Інформаційно, з головним ключем у природній формі, без емодзі й CAPS."""
+
+
+async def media_meta(md: str, tz: dict, lang: str) -> dict:
+    import asyncio
+    h1 = next((h for lvl, h in headings(md) if lvl == 1), tz.get(f"name_{lang}") or "")
+    if config.MOCK:
+        return {"title": h1[:65], "description": strip_md(md)[:155], "tags": [k for k, _ in tz.get(f"kw_{lang}", [])][:4]}
+    kw = ", ".join(k for k, _ in tz.get(f"kw_{lang}", [])[:6])
+    try:
+        d = await asyncio.to_thread(llm.call_tool, META_SYS.replace("{lang_name}", LANG_NAME[lang]),
+                                    f"Ключі: {kw}\n\nСтаття:\n{md[:12000]}", META_TOOL, 1500, lambda x: bool(x.get("title")))
+        return {"title": d["title"], "description": d.get("description", ""), "tags": d.get("tags", [])}
+    except Exception:  # noqa: BLE001
+        return {"title": h1[:65], "description": "", "tags": []}
+
+
 async def write_text(tz: dict, lang: str, project: dict, research: dict | None, log, style: str = "default",
                      facts: list | None = None) -> dict:
     import asyncio
     style = styles.resolve(style, tz)
     ttype = text_types.resolve(project)
+    tz = text_types.adapt_tz(tz, ttype)
+    if tz.get("_dropped"):
+        log(f"{lang.upper()}: для медіа прибрано з ТЗ: " + "; ".join(tz["_dropped"]))
     log(f"{lang.upper()}: тип — {text_types.TYPES[ttype]}; стиль — {styles.name(style)}")
     brief = tz_brief(tz, lang, project, research, style, facts)
     kwl = ", ".join(k for k, _ in tz.get(f"kw_{lang}", []))
@@ -553,7 +618,9 @@ async def write_text(tz: dict, lang: str, project: dict, research: dict | None, 
     if leftover:
         rep["issues"] = rep["issues"] + [f"Аудит ТЗ: [{a.get('section', '')}] {a['problem']}" for a in leftover]
         rep["ok"] = False
-    return {"lang": lang, "markdown": md, "report": rep, "spelling": spell, "rounds": rounds, "facts": facts or [],
+    meta = await media_meta(md, tz, lang) if ttype == text_types.MEDIA else None
+    rep["dropped"] = tz.get("_dropped", [])
+    return {"lang": lang, "markdown": md, "report": rep, "spelling": spell, "rounds": rounds, "facts": facts or [], "meta": meta,
             "style": style, "style_name": styles.name(style), "text_type": ttype, "text_type_name": text_types.TYPES[ttype]}
 
 
