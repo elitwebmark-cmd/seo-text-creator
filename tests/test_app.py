@@ -390,3 +390,36 @@ def test_h3_block_as_list_is_accepted_for_articles():
     mixed = "# Т\n\n## Типи\n\n### Перший тип\n\nТекст.\n\n- **Другий тип.** Пояснення."
     assert any("змішувати" in x for x in writer.check(mixed, tz, "ua", "default", [], {"text_type": "article"})["issues"])
     assert any("Немає заголовка" in x for x in writer.check(md, tz, "ua", "default", [], {})["issues"])
+
+
+def test_section_patch_and_truncated_patch():
+    from app import writer
+    md = "# T\n\nВступ.\n\n## Розділ\n\nСтарий текст.\n\nЩе старий.\n\n## Інший\n\nЛишається."
+    ans = ("<<<<<<< SECTION\n## Розділ\nНовий розгорнутий текст розділу.\n>>>>>>> END\n"
+           "<<<<<<< FIND\nЛишається.\n=======\nОбріз")  # остання правка обрізана — ігнорується
+    new, ok, bad = writer.apply_patches(md, ans)
+    assert ok == 1 and "Новий розгорнутий текст розділу." in new and "Старий" not in new and "Лишається." in new and "## Інший" in new
+
+
+def test_call_text_continues_after_max_tokens(monkeypatch):
+    from types import SimpleNamespace
+    from app import llm, config
+    calls = []
+
+    class Stream:
+        def __init__(self, **kw):
+            calls.append(kw["messages"])
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+        def get_final_message(self):
+            n = len(calls)
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="Частина один. " * 20 if n == 1 else "Частина два.")],
+                                   stop_reason="max_tokens" if n == 1 else "end_turn",
+                                   usage=SimpleNamespace(input_tokens=1, output_tokens=1, cache_creation_input_tokens=0, cache_read_input_tokens=0))
+
+    monkeypatch.setattr(config, "ANTHROPIC_API_KEY", "x")
+    monkeypatch.setattr(llm, "_client", lambda: SimpleNamespace(messages=SimpleNamespace(stream=lambda **kw: Stream(**kw))))
+    out = llm.call_text("sys", "prompt", 100, step="тест")
+    assert out.endswith("Частина два.") and len(calls) == 2 and calls[1][-1]["role"] == "assistant"

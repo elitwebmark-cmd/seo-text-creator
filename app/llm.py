@@ -134,21 +134,32 @@ def normalize(d: dict) -> dict:
 
 
 def call_text(system: str, prompt, max_tokens: int = 16000, model: str | None = None, step: str = "",
-              cache: bool = True, min_len: int = 200) -> str:
-    """Звичайна текстова відповідь Claude. Обрізану лімітом відповідь не повторюємо (повтор коштує стільки ж)."""
+              cache: bool = True, min_len: int = 200, on_truncate: str = "continue") -> str:
+    """Звичайна текстова відповідь Claude.
+    Якщо відповідь обрізано лімітом токенів:
+      on_truncate="continue" — дописуємо продовження (до 2 разів), оплачується лише нова частина;
+      on_truncate="partial"  — повертаємо те, що встигло згенеруватися (напр. правки редактора);
+      on_truncate="error"    — помилка."""
     model = model or config.ANTHROPIC_MODEL
-    last = None
-    for attempt in range(2):
+    messages = [{"role": "user", "content": _content(prompt)}]
+    text, last, conts = "", None, 0
+    attempt = 0
+    while attempt < 2:
         try:
-            with _client().messages.stream(
-                model=model, max_tokens=max_tokens, system=_system(system, cache),
-                messages=[{"role": "user", "content": _content(prompt)}],
-            ) as stream:
+            with _client().messages.stream(model=model, max_tokens=max_tokens, system=_system(system, cache),
+                                           messages=messages) as stream:
                 msg = stream.get_final_message()
             _track(step, model, msg.usage)
-            text = "".join(b.text for b in msg.content if b.type == "text").strip()
+            text += "".join(b.text for b in msg.content if b.type == "text")
             if msg.stop_reason == "max_tokens":
-                raise RuntimeError("Відповідь Claude обрізано лімітом токенів")
+                if on_truncate == "partial":
+                    return text.strip()
+                if on_truncate == "continue" and conts < 2:
+                    conts += 1
+                    messages = [messages[0], {"role": "assistant", "content": text.rstrip()}]
+                    continue
+                raise RuntimeError(f"Відповідь Claude обрізано лімітом токенів (крок: {step or 'текст'})")
+            text = text.strip()
             if len(text) < min_len:
                 raise ValueError("Порожня відповідь моделі")
             return text
@@ -156,8 +167,11 @@ def call_text(system: str, prompt, max_tokens: int = 16000, model: str | None = 
             if e.status_code < 429 or e.status_code == 404:
                 raise _api_error(e) from None
             last = e
-            time.sleep(5 * (attempt + 1))
+            attempt += 1
+            time.sleep(5 * attempt)
         except (anthropic.APIConnectionError, ValueError) as e:
             last = e
+            attempt += 1
+            text, messages, conts = "", [messages[0]], 0
             time.sleep(3)
     raise RuntimeError(f"Claude API: {last}")

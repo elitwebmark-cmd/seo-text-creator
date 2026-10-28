@@ -59,7 +59,12 @@ EDITOR_SYS = """ЗАВДАННЯ: ти — шеф-редактор і корек
 =======
 новий варіант цього фрагмента
 >>>>>>> END
-- Щоб переписати розділ повністю, у FIND встав увесь його текст від рядка заголовка до наступного заголовка.
+- Щоб переписати розділ ЦІЛКОМ (напр. переформатувати абзаци), НЕ повторюй старий текст — використай заміну розділу:
+<<<<<<< SECTION
+## Точний рядок заголовка розділу (як у тексті)
+новий повний текст розділу (без рядка заголовка)
+>>>>>>> END
+  Розділ — від заголовка до наступного заголовка того ж або вищого рівня.
 - Щоб видалити фрагмент — залиш нову частину порожньою. Щоб додати текст — візьми в FIND сусіднє речення і поверни його разом із доданим.
 - Правки не повинні перекриватися. Якщо виправляти нічого — відповідай одним рядком: БЕЗ ЗМІН"""
 
@@ -80,9 +85,22 @@ def _flex(old: str, md: str):
     return (ms[0].start(), ms[0].end()) if len(ms) == 1 else None
 
 
+SECTION_PATCH_RE = re.compile(r"<{5,}\s*SECTION[^\n]*\n(#{1,3}[^\n]+)\n(.*?)\n?>{5,}[^\n]*", re.S)
+
+
 def apply_patches(md: str, answer: str):
-    """(новий текст, застосовано, не знайдено)."""
+    """(новий текст, застосовано, не знайдено). Незавершена остання правка (обрізана відповідь) ігнорується."""
     ok = bad = 0
+    for head, body in SECTION_PATCH_RE.findall(answer or ""):
+        title = re.sub(r"^#{1,3}\s+", "", head.strip())
+        span_body = section_body(md, title)
+        ms = [m for m in re.finditer(r"^(#{1,3})\s+(.+)$", md, re.M) if _norm_h(m.group(2)) == _norm_h(title)]
+        if span_body is None or len(ms) != 1:
+            bad += 1
+            continue
+        start = ms[0].end()
+        md = md[:start] + "\n\n" + body.strip("\n") + "\n\n" + md[start + len(span_body):].lstrip("\n")
+        ok += 1
     for old, new in PATCH_RE.findall(answer or ""):
         old = old.strip("\n")
         span = _flex(old, md) if old.strip() else None
@@ -629,11 +647,15 @@ async def write_text(tz: dict, lang: str, project: dict, research: dict | None, 
     else:
         log(f"{lang.upper()}: Claude пише текст")
         md = _clean_md(await asyncio.to_thread(
-            llm.call_text, system, [(brief, True), "Напиши текст сторінки."], 16000, step="тексти: автор"))
+            llm.call_text, system, [(brief, True), "Напиши текст сторінки."], 32000, step="тексти: автор"))
 
     async def edit(report: str, label: str):
-        ans = await asyncio.to_thread(llm.call_text, system, [(brief, True), f"{EDITOR_SYS}\n\n{report}\n\n## Поточний текст\n{md}"],
-                                      8000, step=label, min_len=1)
+        try:
+            ans = await asyncio.to_thread(llm.call_text, system, [(brief, True), f"{EDITOR_SYS}\n\n{report}\n\n## Поточний текст\n{md}"],
+                                          24000, step=label, min_len=1, on_truncate="partial")
+        except Exception as e:  # noqa: BLE001  редактор не має валити весь текст
+            log(f"{lang.upper()}: редактор не відповів ({e}) — лишаю попередню версію")
+            return md, 0
         new, ok, bad = apply_patches(md, ans)
         log(f"{lang.upper()}: правок застосовано {ok}" + (f", не знайдено у тексті {bad}" if bad else ""))
         return new, ok
