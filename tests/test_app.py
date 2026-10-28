@@ -260,15 +260,19 @@ def test_editor_regression_keeps_best_version(monkeypatch):
     from app import writer, prompts, llm, config
     tz = llm.normalize(prompts.EXAMPLE)
     draft = writer._mock_text(tz, "ua")
-    worse = draft + "\n\n## Зайвий розділ\n\nЗа статистикою, 43% компаній. [уточнити]"
-    calls = {"n": 0}
+    first_para = draft.split("\n\n")[1]
+    bad_patch = f"<<<<<<< FIND\n{first_para}\n=======\n{first_para}\n\n## Зайвий розділ\n\nЗа статистикою, 43% компаній. [уточнити]\n>>>>>>> END"
+    seen = []
 
-    def fake(system, prompt, max_tokens=16000):
-        calls["n"] += 1
-        if system.startswith("Ти — досвідчений SEO"):
+    def fake(system, prompt, max_tokens=16000, **kw):
+        seen.append(kw.get("step"))
+        tail = prompt[-1] if isinstance(prompt, list) else prompt
+        if kw.get("step") in ("тексти: автор", "тексти: редактор"):
+            assert isinstance(prompt, list) and prompt[0][1] is True  # бриф кешується
+        if "шеф-редактор" in tail:
+            return bad_patch
+        if "Напиши текст" in tail:
             return draft
-        if system.startswith("Ти — шеф-редактор"):
-            return worse
         return "x" * 300
 
     async def no_lt(md, lang):
@@ -280,6 +284,34 @@ def test_editor_regression_keeps_best_version(monkeypatch):
     monkeypatch.setattr(writer, "languagetool", no_lt)
     res = asyncio.run(writer.write_text(tz, "ua", {}, None, lambda m: None, facts=[]))
     assert "Зайвий розділ" not in res["markdown"] and res["rounds"] >= 1
+    assert "тексти: автор" in seen and "тексти: редактор" in seen
+
+
+def test_apply_patches():
+    from app import writer
+    md = "# T\n\nПерше  речення тут.\nДруге речення.\n\n## Розділ\n\nТекст."
+    ans = ("<<<<<<< FIND\nПерше речення тут. Друге речення.\n=======\nНове речення.\n>>>>>>> END\n"
+           "<<<<<<< FIND\nнемає такого\n=======\nх\n>>>>>>> END")
+    new, ok, bad = writer.apply_patches(md, ans)
+    assert ok == 1 and bad == 1 and "Нове речення." in new and "Друге" not in new
+    assert writer.apply_patches(md, "БЕЗ ЗМІН") == (md, 0, 0)
+
+
+def test_cost_tracking(monkeypatch):
+    from types import SimpleNamespace
+    from app import llm, db
+    jid = db.create("cost test", {"kind": "tz"})
+    tok = llm.JOB.set(jid)
+    try:
+        llm._track("тексти: автор", "claude-sonnet-4-5", SimpleNamespace(input_tokens=1000, output_tokens=2000,
+                   cache_creation_input_tokens=10000, cache_read_input_tokens=0))
+        llm._track("тексти: аудит ТЗ", "claude-haiku-4-5", SimpleNamespace(input_tokens=1000, output_tokens=1000,
+                   cache_creation_input_tokens=0, cache_read_input_tokens=10000))
+    finally:
+        llm.JOB.reset(tok)
+    c = db.job_costs(jid)
+    assert c["calls"] == 2 and abs(c["usd"] - (0.003 + 0.03 + 0.0375 + 0.001 + 0.005 + 0.001)) < 1e-6
+    assert any(j["id"] == jid and j["cost_usd"] > 0 for j in db.list_jobs())
 
 
 def test_docx_has_hyperlink_and_sources():

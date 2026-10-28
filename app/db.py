@@ -55,6 +55,37 @@ def save_volumes(vols: dict, lang: str):
         c.executemany("INSERT OR REPLACE INTO volumes VALUES(?,?,?,?)", [(k, lang, int(v), now) for k, v in vols.items()])
 
 
+def _cost_table(c):
+    c.execute("CREATE TABLE IF NOT EXISTS costs(job TEXT, step TEXT, model TEXT, inp INTEGER, out INTEGER, "
+              "cache_w INTEGER, cache_r INTEGER, usd REAL, ts REAL)")
+
+
+def add_cost(jid, step, model, inp, out, cw, cr, usd):
+    with _lock, _conn() as c:
+        _cost_table(c)
+        c.execute("INSERT INTO costs VALUES(?,?,?,?,?,?,?,?,?)", (jid, step, model, inp, out, cw, cr, usd, time.time()))
+
+
+def job_costs(jid) -> dict:
+    """{'usd', 'calls', 'steps': [{step, model, calls, inp, out, cache_r, usd}]}"""
+    with _lock, _conn() as c:
+        _cost_table(c)
+        rows = c.execute("SELECT step, model, COUNT(*) n, SUM(inp) i, SUM(out) o, SUM(cache_r) r, SUM(cache_w) w, SUM(usd) u "
+                         "FROM costs WHERE job=? GROUP BY step, model ORDER BY u DESC", (jid,)).fetchall()
+    steps = [{"step": r["step"], "model": r["model"], "calls": r["n"], "inp": r["i"], "out": r["o"], "cache_r": r["r"],
+              "cache_w": r["w"], "usd": round(r["u"] or 0, 4)} for r in rows]
+    return {"usd": round(sum(x["usd"] for x in steps), 4), "calls": sum(x["calls"] for x in steps), "steps": steps}
+
+
+def costs_total(jids) -> dict:
+    if not jids:
+        return {}
+    with _lock, _conn() as c:
+        _cost_table(c)
+        q = f"SELECT job, SUM(usd) u FROM costs WHERE job IN ({','.join('?' * len(jids))}) GROUP BY job"
+        return {r["job"]: round(r["u"] or 0, 4) for r in c.execute(q, list(jids))}
+
+
 def create(title: str, params: dict) -> str:
     jid = uuid.uuid4().hex[:12]
     with _lock, _conn() as c:
@@ -88,6 +119,9 @@ def list_jobs(limit: int = 50):
         d["files"] = json.loads(d["files"] or "[]")
         d["kind"] = (json.loads(d.pop("params") or "{}") or {}).get("kind", "tz")
         out.append(d)
+    totals = costs_total([d["id"] for d in out])
+    for d in out:
+        d["cost_usd"] = totals.get(d["id"], 0)
     return out
 
 

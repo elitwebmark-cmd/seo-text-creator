@@ -207,9 +207,10 @@ IMPORT_SYS = """Ти — SEO-спеціаліст. Тобі дали готов�
 
 
 def llm_import(raw: str, title: str) -> dict:
-    from . import llm
+    from . import config, llm
     from .prompts import TOOL
-    data = llm.call_tool(IMPORT_SYS, f"ТЗ «{title}»:\n\n{raw[:60000]}", TOOL, 16000, check=lambda d: bool(d.get("blocks")))
+    data = llm.call_tool(IMPORT_SYS, f"ТЗ «{title}»:\n\n{raw[:60000]}", TOOL, 16000, check=lambda d: bool(d.get("blocks")),
+                         model=config.ANTHROPIC_MODEL_LIGHT, step="імпорт ТЗ")
     tz = llm.normalize(data)
     lang = "ru" if tz.get("kw_ru") and not tz.get("kw_ua") else _lang_of(" ".join(b[1] for b in tz["blocks"] if b[0] in ("h1", "h2", "h3", "q")))
     return {"sheet": title, "lang": lang, "name": tz.get(f"name_{lang}") or title, "tz": tz,

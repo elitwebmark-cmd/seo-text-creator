@@ -30,24 +30,69 @@ WRITER_SYS = """Ти — досвідчений SEO-копірайтер і ре
 
 ФОРМАТ ВІДПОВІДІ: лише markdown-текст сторінки, без пояснень. # — H1, ## — H2 (а також «## CTA», «## FAQ»), ### — H3 і питання FAQ.
 
+"""
+REF_BLOCK = """
 ЕТАЛОН РІВНЯ (інша сторінка, інша компанія — НЕ копіюй факти, бери лише рівень якості, тон, щільність і форматування):
 """ + REFERENCE
 
-EDITOR_SYS = """Ти — шеф-редактор і коректор. Тобі дано ТЗ, текст і звіт перевірки (автоматика + аудит відповідності ТЗ). Поверни ВИПРАВЛЕНИЙ ПОВНИЙ текст сторінки в markdown (без пояснень).
+
+def writer_system(lang: str, ttype: str = "landing") -> str:
+    """Спільний system для автора, редактора й коректури — разом із брифом кешується (prompt caching)."""
+    return WRITER_SYS.replace("{lang_name}", LANG_NAME[lang]) + ("" if text_types.is_article(ttype) else REF_BLOCK)
+
+EDITOR_SYS = """ЗАВДАННЯ: ти — шеф-редактор і коректор. Нижче — звіт перевірки (автоматика + аудит відповідності ТЗ) і поточний текст. Виправ текст ПРАВКАМИ.
 ЯК ПРАЦЮВАТИ:
-- Виправляй ТОЧКОВО: змінюй лише речення й абзаци, яких стосуються пункти звіту. Решту тексту залиш дослівно — не переписуй те, що вже правильно, щоб не з'явилися нові помилки.
+- Змінюй лише речення й абзаци, яких стосуються пункти звіту. Решту тексту не чіпай.
 - Виправ УСІ пункти звіту: обсяг, заголовки, ключі/LSI, FAQ, невиконані вимоги коментарів ТЗ, смислові й фактичні помилки, неперевірені цифри, плейсхолдери, орфографію.
 - Структура: усі заголовки ТЗ дослівно і в тому самому порядку; заголовків, яких немає в ТЗ, бути не повинно (винятки для статей — у «Формат тексту»: короткі блоки H3 → список із жирними назвами пунктів; у медіа — фінальний розділ перед FAQ замість CTA).
 - Для статей виконуй «Правила редакції»: без риторичних питань, «Так/Ні» на початку відповідей, жирного в абзацах, більше одного тире в реченні, слів-переходів на початку абзаців поспіль, цифр і термінів без джерела.
-- Цифри статистики — лише з «Перевірених фактів» і з посиланням; неперевірену цифру прибери (переформулюй думку без числа). Факти про компанію — лише з «Про компанію».
-- Жодних плейсхолдерів і квадратних дужок «[уточнити…]»: замість них — коректне формулювання без вигаданих даних.
-- Посилання [джерело](URL) і кнопку CTA **[…]** збережи.
-- Мова — природна {lang_name}, без орфографічних, граматичних, пунктуаційних, стилістичних і смислових помилок, без суржику й кальок.
-- Тримай стиль і тональність із розділу «Стиль і тональність» (якщо він є); прибирай AI-штампи.
-- Формат — за розділом «Формат тексту». Якщо звіт каже, що абзаци закороткі або забагато списків (стаття), переформатуй потрібні розділи повністю: об'єднай дрібні абзаци в розгорнуті (3–6 речень) з логічними переходами, пояснювальні списки перепиши абзацами; заголовки, факти, ключі й обсяг збережи.
-- Якщо пункт LanguageTool — хибна тривога (термін, бренд), залиш як є.
-Якщо треба скоротити — прибирай «воду», а не зміст. Якщо треба додати — додавай корисну конкретику, а не повтори.
-Пріоритети: структура і вимоги ТЗ → факти і смисл → загальний обсяг і обсяги розділів → ключі → верхні межі LSI → нижні межі LSI."""
+- Цифри статистики — лише з «Перевірених фактів» і з посиланням; неперевірену цифру прибери (переформулюй думку без числа). Факти про компанію — лише з «Про компанію». Жодних плейсхолдерів «[уточнити…]».
+- Посилання [джерело](URL) і кнопку CTA **[…]** збережи. Мова — природна, без помилок, суржику й кальок; стиль — за розділом «Стиль і тональність».
+- Формат — за розділом «Формат тексту». Якщо абзаци закороткі або забагато списків (стаття) — переформатуй такий розділ цілком (див. нижче, як замінити розділ).
+- Пункт LanguageTool, що є хибною тривогою (термін, бренд), пропускай.
+Якщо треба скоротити — прибирай «воду», а не зміст. Якщо треба додати — корисну конкретику, а не повтори.
+Пріоритети: структура і вимоги ТЗ → факти і смисл → обсяг → ключі → верхні межі LSI → нижні межі LSI.
+
+ФОРМАТ ВІДПОВІДІ — ЛИШЕ ПРАВКИ, без пояснень і БЕЗ повного тексту. Кожна правка:
+<<<<<<< FIND
+фрагмент поточного тексту — ДОСЛІВНО, символ у символ (ціле речення, абзац або розділ; достатньо довгий, щоб бути унікальним)
+=======
+новий варіант цього фрагмента
+>>>>>>> END
+- Щоб переписати розділ повністю, у FIND встав увесь його текст від рядка заголовка до наступного заголовка.
+- Щоб видалити фрагмент — залиш нову частину порожньою. Щоб додати текст — візьми в FIND сусіднє речення і поверни його разом із доданим.
+- Правки не повинні перекриватися. Якщо виправляти нічого — відповідай одним рядком: БЕЗ ЗМІН"""
+
+
+PATCH_RE = re.compile(r"<{5,}\s*FIND[^\n]*\n(.*?)\n={5,}[^\n]*\n(.*?)\n?>{5,}[^\n]*", re.S)
+
+
+def _flex(old: str, md: str):
+    """Позиція фрагмента з точністю до пробілів/переносів: (start, end) або None, якщо 0 чи >1 збігів."""
+    if md.count(old) == 1:
+        i = md.index(old)
+        return i, i + len(old)
+    toks = old.split()
+    if not toks:
+        return None
+    rx = re.compile(r"\s+".join(re.escape(t) for t in toks))
+    ms = list(rx.finditer(md))
+    return (ms[0].start(), ms[0].end()) if len(ms) == 1 else None
+
+
+def apply_patches(md: str, answer: str):
+    """(новий текст, застосовано, не знайдено)."""
+    ok = bad = 0
+    for old, new in PATCH_RE.findall(answer or ""):
+        old = old.strip("\n")
+        span = _flex(old, md) if old.strip() else None
+        if not span:
+            bad += 1
+            continue
+        md = md[:span[0]] + new.strip("\n") + md[span[1]:]
+        ok += 1
+    md = re.sub(r"\n{3,}", "\n\n", md)
+    return md, ok, bad
 
 
 # ---------------------------------------------------------------- ТЗ → текст для промпту
@@ -464,7 +509,7 @@ async def fix_sections(md, tz, lang, brief_kw, log, style="default"):
             cand.append((dev, title, act, lo, hi))
     cand.sort(reverse=True)
     need = n - vr[1] if n > vr[1] else vr[0] - n
-    for dev, title, act, lo, hi in cand[:5]:
+    for dev, title, act, lo, hi in cand[:3]:
         if need <= 0:
             break
         span = section_text(md, title)
@@ -475,7 +520,8 @@ async def fix_sections(md, tz, lang, brief_kw, log, style="default"):
         part = md[span[0]:span[1]]
         new = _clean_md(await asyncio.to_thread(
             llm.call_text, SECTION_SYS.replace("{lang_name}", LANG_NAME[lang]),
-            f"Ціль: {lo}–{hi} зн. (зараз {act}).\nКлючові слова, які треба зберегти, якщо вони є в розділі: {brief_kw}\n\n## Розділ\n{part}", 6000))
+            f"Ціль: {lo}–{hi} зн. (зараз {act}).\nКлючові слова, які треба зберегти, якщо вони є в розділі: {brief_kw}\n\n## Розділ\n{part}", 6000,
+            step="тексти: підгонка розділів"))
         if headings(new) and _norm_h(headings(new)[0][1]) == _norm_h(title):
             md = md[:span[0]] + new.strip() + "\n\n" + md[span[1]:].lstrip()
             need -= abs(act - len(strip_md(new)))
@@ -511,15 +557,15 @@ async def audit(md: str, brief: str) -> list[dict]:
     if config.MOCK or not config.TEXT_AUDIT:
         return []
     try:
-        d = await asyncio.to_thread(llm.call_tool, AUDIT_SYS, f"{brief}\n\n## Текст для перевірки\n{md}", AUDIT_TOOL, 6000,
-                                    lambda x: "items" in x)
+        d = await asyncio.to_thread(llm.call_tool, AUDIT_SYS, [(brief, True), f"## Текст для перевірки\n{md}"], AUDIT_TOOL, 6000,
+                                    lambda x: "items" in x, config.ANTHROPIC_MODEL_LIGHT, "тексти: аудит ТЗ")
         return [i for i in d.get("items", []) if i.get("problem")]
     except Exception:  # noqa: BLE001
         return []
 
 
-def _score(rep, spell, aud):
-    return len(rep["issues"]) * 2 + sum(2 for a in aud if a.get("severity") == "critical") + 0.5 * len(spell)
+def _score(rep, spell, aud=None):
+    return len(rep["issues"]) * 2 + 0.5 * len(spell)
 
 
 def _report(rep, spell, aud):
@@ -558,7 +604,8 @@ async def media_meta(md: str, tz: dict, lang: str) -> dict:
     kw = ", ".join(k for k, _ in tz.get(f"kw_{lang}", [])[:6])
     try:
         d = await asyncio.to_thread(llm.call_tool, META_SYS.replace("{lang_name}", LANG_NAME[lang]),
-                                    f"Ключі: {kw}\n\nСтаття:\n{md[:12000]}", META_TOOL, 1500, lambda x: bool(x.get("title")))
+                                    f"Ключі: {kw}\n\nСтаття:\n{md[:12000]}", META_TOOL, 1500, lambda x: bool(x.get("title")),
+                                    config.ANTHROPIC_MODEL_LIGHT, "тексти: Title/Description")
         return {"title": d["title"], "description": d.get("description", ""), "tags": d.get("tags", [])}
     except Exception:  # noqa: BLE001
         return {"title": h1[:65], "description": "", "tags": []}
@@ -576,43 +623,54 @@ async def write_text(tz: dict, lang: str, project: dict, research: dict | None, 
     brief = tz_brief(tz, lang, project, research, style, facts)
     kwl = ", ".join(k for k, _ in tz.get(f"kw_{lang}", []))
     ck = lambda t: check(t, tz, lang, style, facts, project)  # noqa: E731
+    system = writer_system(lang, ttype)
     if config.MOCK:
         md = _mock_text(tz, lang, facts)
     else:
         log(f"{lang.upper()}: Claude пише текст")
         md = _clean_md(await asyncio.to_thread(
-            llm.call_text, WRITER_SYS.replace("{lang_name}", LANG_NAME[lang]), brief + "\n\nНапиши текст сторінки.", 16000))
-    versions, rounds = [], 0
+            llm.call_text, system, [(brief, True), "Напиши текст сторінки."], 16000, step="тексти: автор"))
+
+    async def edit(report: str, label: str):
+        ans = await asyncio.to_thread(llm.call_text, system, [(brief, True), f"{EDITOR_SYS}\n\n{report}\n\n## Поточний текст\n{md}"],
+                                      8000, step=label, min_len=1)
+        new, ok, bad = apply_patches(md, ans)
+        log(f"{lang.upper()}: правок застосовано {ok}" + (f", не знайдено у тексті {bad}" if bad else ""))
+        return new, ok
+
+    versions, rounds, aud = [], 0, []
     while True:
         if any(x.startswith("Загальний обсяг") for x in ck(md)["issues"]) and not config.MOCK:
             md = await fix_sections(md, tz, lang, kwl, log, style)
         rep, spell = ck(md), await languagetool(md, lang)
-        aud = await audit(md, brief)
-        crit = sum(1 for a in aud if a.get("severity") == "critical")
-        log(f"{lang.upper()}: перевірка (раунд {rounds}) — {len(rep['issues'])} проблем автоматики, {crit} критичних зауважень аудиту ТЗ, "
-            f"{len(spell)} LanguageTool, {rep['chars']} зн.")
-        versions.append((_score(rep, spell, aud), -rounds, md, rep, spell, aud))
-        if (rep["ok"] and not spell and not crit) or rounds >= config.TEXT_MAX_FIX_ROUNDS or config.MOCK:
+        cur_aud = await audit(md, brief) if rounds == 0 else []  # аудит Claude — на чернетці; далі — автоматика
+        aud = aud or cur_aud
+        crit = sum(1 for a in cur_aud if a.get("severity") == "critical")
+        log(f"{lang.upper()}: перевірка (раунд {rounds}) — {len(rep['issues'])} проблем автоматики"
+            + (f", {crit} критичних зауважень аудиту ТЗ" if rounds == 0 else "") + f", {len(spell)} LanguageTool, {rep['chars']} зн.")
+        versions.append((_score(rep, spell), -rounds, md, rep, spell))
+        if (rep["ok"] and not crit and len(spell) < 2) or rounds >= config.TEXT_MAX_FIX_ROUNDS or config.MOCK:
             break
         rounds += 1
         log(f"{lang.upper()}: редактор виправляє (раунд {rounds})")
-        md = _clean_md(await asyncio.to_thread(
-            llm.call_text, EDITOR_SYS.replace("{lang_name}", LANG_NAME[lang]),
-            f"{brief}\n\n{_report(rep, spell, aud)}\n\n## Текст\n{md}\n\nПоверни виправлений повний текст.", 16000))
+        md, ok = await edit(_report(rep, spell, cur_aud), "тексти: редактор")
+        if not ok:
+            break
     best = min(versions, key=lambda v: (v[0], v[1]))
-    md, rep, spell, aud = best[2], best[3], best[4], best[5]
+    md, rep, spell = best[2], best[3], best[4]
     if len(versions) > 1 and best is not versions[-1]:
         log(f"{lang.upper()}: остання редакція не краща — беру найкращу версію (раунд {-best[1]})")
-    # фінальна коректура, якщо редактор ще не торкався тексту; приймаємо лише без погіршень
-    if rounds == 0 and not config.MOCK:
-        log(f"{lang.upper()}: фінальна коректура")
-        fixed = _clean_md(await asyncio.to_thread(
-            llm.call_text, EDITOR_SYS.replace("{lang_name}", LANG_NAME[lang]),
-            f"{brief}\n\n## Звіт перевірки\n- Автоматичних проблем не знайдено. Зроби лише коректуру: орфографія, пунктуація, граматика, "
-            f"стиль, логіка. Нічого не скорочуй і не додавай.\n\n## Текст\n{md}", 16000))
-        r2 = ck(fixed)
-        if len(r2["issues"]) <= len(rep["issues"]):
-            md, rep = fixed, r2
+    if not config.MOCK:
+        if rounds == 0:
+            # коректура правками; приймаємо лише без погіршень
+            log(f"{lang.upper()}: фінальна коректура")
+            fixed, ok = await edit("## Звіт перевірки\n- Автоматичних проблем не знайдено. Зроби лише коректуру: орфографія, пунктуація, "
+                                   "граматика, стиль, логіка. Нічого не скорочуй і не додавай.", "тексти: коректура")
+            r2 = ck(fixed)
+            if ok and len(r2["issues"]) <= len(rep["issues"]):
+                md, rep = fixed, r2
+        else:
+            aud = await audit(md, brief)  # фінальний аудит — для звіту
     leftover = [a for a in aud if a.get("severity") == "critical"]
     rep = {**rep, "audit": aud}
     if leftover:

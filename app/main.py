@@ -92,6 +92,7 @@ def health():
         "anthropic_key": bool(config.ANTHROPIC_API_KEY),
         "serper_key": bool(config.SERPER_API_KEY),
         "model": config.ANTHROPIC_MODEL,
+        "model_light": config.ANTHROPIC_MODEL_LIGHT,
         "dataforseo": bool(config.DATAFORSEO_LOGIN and config.DATAFORSEO_PASSWORD),
     }
 
@@ -331,6 +332,7 @@ def job(jid: str):
     if not j:
         raise HTTPException(404)
     j.pop("params", None)
+    j["costs"] = db.job_costs(jid)
     return j
 
 

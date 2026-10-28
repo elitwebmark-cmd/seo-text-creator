@@ -16,6 +16,7 @@ def _int(name: str, default: int) -> int:
 
 ANTHROPIC_API_KEY = _env("ANTHROPIC_API_KEY")
 ANTHROPIC_MODEL = _env("ANTHROPIC_MODEL", "claude-sonnet-4-5")
+ANTHROPIC_MODEL_LIGHT = _env("ANTHROPIC_MODEL_LIGHT", "claude-haiku-4-5")  # допоміжні кроки: сиди, факти, аудит, Title
 SERPER_API_KEY = _env("SERPER_API_KEY")
 APP_PASSWORD = _env("APP_PASSWORD")
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-secret-change-me")
@@ -45,7 +46,7 @@ VOLUME_CACHE_DAYS = _int("VOLUME_CACHE_DAYS", 90)
 
 # Перевірка орфографії: LanguageTool (публічний API або власний сервер); порожньо = вимкнено
 LANGUAGETOOL_URL = _env("LANGUAGETOOL_URL", "https://api.languagetool.org/v2/check")
-TEXT_MAX_FIX_ROUNDS = _int("TEXT_MAX_FIX_ROUNDS", 3)
+TEXT_MAX_FIX_ROUNDS = _int("TEXT_MAX_FIX_ROUNDS", 2)
 # Факти з джерелами для текстів: пошук через Serper + перевірка цитат кодом
 FACTS_ENABLED = os.getenv("FACTS_ENABLED", "1") == "1"
 FACTS_MAX_PAGES = _int("FACTS_MAX_PAGES", 8)

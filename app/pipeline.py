@@ -337,6 +337,7 @@ def start(jid: str):
     import threading
 
     def _runner():
+        llm.JOB.set(jid)
         try:
             kind = (db.get(jid)["params"] or {}).get("kind", "tz")
             runner = {"semantics": run_semantics_job, "volumes": run_volumes_job, "texts": run_texts_job,
@@ -345,5 +346,10 @@ def start(jid: str):
         except Exception as e:  # noqa: BLE001
             db.update(jid, status="error", error=str(e))
             db.log(jid, "Фатальна помилка: " + "".join(traceback.format_exception_only(type(e), e)))
+        finally:
+            cs = db.job_costs(jid)
+            if cs["calls"]:
+                db.log(jid, f"Витрати Claude: ${cs['usd']:.2f} за {cs['calls']} викликів — "
+                       + "; ".join(f"{x['step']} ({x['model'].replace('claude-', '')}, {x['calls']}×): ${x['usd']:.3f}" for x in cs["steps"]))
 
     threading.Thread(target=_runner, daemon=True).start()

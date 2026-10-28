@@ -35,7 +35,7 @@ FIELDS.forEach(id => { const el = $('#'+id); try { el.value = localStorage.getIt
 fetch('/api/health').then(r => r.json()).then(h => {
   const miss = [];
   if (!h.mock) { if (!h.anthropic_key) miss.push('ANTHROPIC_API_KEY'); if (!h.serper_key) miss.push('SERPER_API_KEY'); }
-  $('#health').textContent = miss.length ? '⚠ не задано: ' + miss.join(', ') : 'модель: ' + h.model;
+  $('#health').textContent = miss.length ? '⚠ не задано: ' + miss.join(', ') : 'модель: ' + h.model + (h.model_light ? ' + ' + h.model_light + ' (допоміжні кроки)' : '');
   $('#dfsHint').textContent = (h.dataforseo || h.mock) ? 'Частотність: Google Ads по Україні (DataForSEO).' : '⚠ DataForSEO не підключено — ключі зберуться, але без частотності.';
 });
 
@@ -196,6 +196,7 @@ async function loadJobs() {
   if (!list.length) { $('#jobs').innerHTML = '<p class="muted small">Поки порожньо</p>'; return; }
   $('#jobs').innerHTML = list.map(j => `<div class="job">
     <div class="job-head"><span class="job-title">${esc(j.title)}</span><span class="status ${j.status}">${ST[j.status] || j.status}</span></div>
+    ${j.cost_usd ? `<div class="muted small" title="Витрати Claude API за цю задачу; деталі — у «Лог»">Claude: $${(+j.cost_usd).toFixed(2)}</div>` : ''}
     <div class="muted small">${new Date(j.created * 1000).toLocaleString('uk-UA')}</div>
     <div class="bar"><i style="width:${Math.round(j.progress * 100)}%"></i></div>
     <div class="files">${(j.files || []).map(f => `<a href="/api/jobs/${j.id}/files/${encodeURIComponent(f)}">⬇ ${esc(f)}</a>`).join('')}</div>

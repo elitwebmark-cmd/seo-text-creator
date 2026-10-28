@@ -252,7 +252,7 @@ async def research(tz: dict, style: str, project: dict, log) -> list[dict]:
              + f"\nКлючі: {', '.join(k for k, _ in (tz.get('kw_ua') or tz.get('kw_ru') or [])[:8])}")
     log("факти: Claude підбирає пошукові запити")
     qd = await asyncio.to_thread(llm.call_tool, Q_SYS.format(y0=y0, y1=y1), topic, Q_TOOL, 2000,
-                                 lambda d: bool(d.get("queries")))
+                                 lambda d: bool(d.get("queries")), config.ANTHROPIC_MODEL_LIGHT, "факти: запити")
     queries = qd["queries"][:7]
     results = await asyncio.gather(*(serp.search(q["q"], {"uk": "ua", "ru": "ru", "en": "en"}.get(q.get("lang"), "ua"), 10)
                                      for q in queries), return_exceptions=True)
@@ -286,7 +286,7 @@ async def research(tz: dict, style: str, project: dict, log) -> list[dict]:
         log("факти: на сторінках не знайшлося фрагментів із цифрами")
         return []
     ed = await asyncio.to_thread(llm.call_tool, E_SYS.format(y1=y1), topic + "\n\n" + "\n\n".join(chunks)[:60000], E_TOOL, 8000,
-                                 lambda d: "facts" in d)
+                                 lambda d: "facts" in d, config.ANTHROPIC_MODEL_LIGHT, "факти: витяг")
     ok, rejected, seen = [], {}, set()
     for f in ed.get("facts", []):
         f["url"] = f.get("url", "").strip()

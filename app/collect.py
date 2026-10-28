@@ -92,7 +92,7 @@ async def collect_one(entry: str, langs: list[str], project: dict, log) -> dict:
                  "negative": ["вакансії"]}
     else:
         log("Claude формує сиди")
-        seeds = await asyncio.to_thread(llm.call_tool, S_SYS, context, S_TOOL, 4000)
+        seeds = await asyncio.to_thread(llm.call_tool, S_SYS, context, S_TOOL, 4000, None, config.ANTHROPIC_MODEL_LIGHT, "семантика: сиди")
 
     neg = [n.lower() for n in seeds.get("negative", []) if n]
     cand: dict[str, dict[str, int | None]] = {}
@@ -149,7 +149,7 @@ async def collect_one(entry: str, langs: list[str], project: dict, log) -> dict:
             lines.append(f"\n## Кандидати {lang.upper()} (ключ — частотність, «?» = невідома)")
             lines += [f"{k} — {'?' if v is None else v}" for k, v in cand[lang].items()]
         log("Claude чистить і кластеризує")
-        sem = await asyncio.to_thread(llm.call_tool, C_SYS, "\n".join(lines), C_TOOL, 8000)
+        sem = await asyncio.to_thread(llm.call_tool, C_SYS, "\n".join(lines), C_TOOL, 8000, None, None, "семантика: чистка")
 
     def pack(keys, lang):
         pool = cand.get(lang, {})
