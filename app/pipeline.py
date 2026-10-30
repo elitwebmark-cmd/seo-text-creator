@@ -83,7 +83,7 @@ async def fill_missing_volumes(jid, pages):
             db.log(jid, f"{lang.upper()}: {len(missing)} ключів без частотності — DataForSEO не підключено, лишаємо «—»")
             continue
         try:
-            vols = await volumes.search_volume(missing, lang)
+            vols = await volumes.search_volume(missing, lang, lambda m: db.log(jid, m))
             db.log(jid, f"{lang.upper()}: дозняв частотність для {len(missing)} ключів без неї (кеш + DataForSEO)")
         except Exception as e:  # noqa: BLE001
             db.log(jid, f"{lang.upper()}: частотність не знято: {e}")
@@ -175,7 +175,8 @@ async def write_texts(jid, items, project, outdir, errors):
         name = tz.get(f"name_{lang}") or tz.get("name_ua") or it["id"]
         style = writer_styles.resolve(it.get("style") or project.get("text_style") or "default", tz)
         async with sem:
-            facts = await get_facts(it, style)
+            from . import text_types as _tt
+            facts = await get_facts(it, style) if _tt.is_article(_tt.resolve(project)) else None
             res = await writer.write_text(tz, lang, project, it.get("research"), lambda m: db.log(jid, f"[{it['id']} {name}] {m}"),
                                           style=style, facts=facts)
         done["n"] += 1

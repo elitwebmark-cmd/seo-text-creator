@@ -49,15 +49,15 @@ def _system(system: str, cache: bool):
     return [{"type": "text", "text": system, **({"cache_control": {"type": "ephemeral"}} if cache else {})}]
 
 
-def _content(prompt):
+def _content(prompt, cache: bool = True):
     """prompt: рядок або список частин; частина (text, True) кешується (стабільний префікс, напр. бриф)."""
     if isinstance(prompt, str):
         return prompt
     out = []
     for part in prompt:
-        text, cache = (part, False) if isinstance(part, str) else part
+        text, c = (part, False) if isinstance(part, str) else part
         if text:
-            out.append({"type": "text", "text": text, **({"cache_control": {"type": "ephemeral"}} if cache else {})})
+            out.append({"type": "text", "text": text, **({"cache_control": {"type": "ephemeral"}} if (c and cache) else {})})
     return out
 
 
@@ -71,7 +71,7 @@ def _api_error(e):
 
 
 def call_tool(system: str, prompt, tool: dict, max_tokens: int = 20000, check=None, model: str | None = None,
-              step: str = "", cache: bool = True) -> dict:
+              step: str = "", cache: bool = False) -> dict:
     """Виклик Claude з примусовим інструментом; повертає його input."""
     model = model or config.ANTHROPIC_MODEL
     last = None
@@ -80,7 +80,7 @@ def call_tool(system: str, prompt, tool: dict, max_tokens: int = 20000, check=No
             with _client().messages.stream(
                 model=model, max_tokens=max_tokens, system=_system(system, cache), tools=[tool],
                 tool_choice={"type": "tool", "name": tool["name"]},
-                messages=[{"role": "user", "content": _content(prompt)}],
+                messages=[{"role": "user", "content": _content(prompt, cache)}],
             ) as stream:
                 msg = stream.get_final_message()
             _track(step, model, msg.usage)
@@ -134,14 +134,14 @@ def normalize(d: dict) -> dict:
 
 
 def call_text(system: str, prompt, max_tokens: int = 16000, model: str | None = None, step: str = "",
-              cache: bool = True, min_len: int = 200, on_truncate: str = "continue") -> str:
+              cache: bool = False, min_len: int = 200, on_truncate: str = "continue") -> str:
     """Звичайна текстова відповідь Claude.
     Якщо відповідь обрізано лімітом токенів:
       on_truncate="continue" — дописуємо продовження (до 2 разів), оплачується лише нова частина;
       on_truncate="partial"  — повертаємо те, що встигло згенеруватися (напр. правки редактора);
       on_truncate="error"    — помилка."""
     model = model or config.ANTHROPIC_MODEL
-    messages = [{"role": "user", "content": _content(prompt)}]
+    messages = [{"role": "user", "content": _content(prompt, cache)}]
     text, last, conts = "", None, 0
     attempt = 0
     while attempt < 2:

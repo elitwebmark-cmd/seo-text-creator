@@ -129,7 +129,7 @@ async def collect_one(entry: str, langs: list[str], project: dict, log) -> dict:
         if missing and (volumes.dfs_enabled() or config.MOCK):
             try:
                 log(f"{lang.upper()}: частотність для {len(missing)} ключів")
-                vols = await volumes.search_volume(missing, lang)
+                vols = await volumes.search_volume(missing, lang, log)
                 log(f"{lang.upper()}: DataForSEO повернув частотність для {sum(1 for v in vols.values() if v)} з {len(missing)} ключів")
                 for k in missing:
                     if k in vols:

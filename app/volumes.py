@@ -1,4 +1,6 @@
 """Частотність і підказки ключів: DataForSEO (Google Ads / Keyword Planner) + Serper Autocomplete."""
+import re
+
 import httpx
 
 from . import config
@@ -63,29 +65,68 @@ async def diagnose() -> dict:
     return out
 
 
-async def search_volume(keywords: list[str], lang: str) -> dict[str, int]:
-    """{ключ: середньомісячна частотність в Україні}.
+BAD_CHARS = re.compile(r"[!@%^*()=\{\}\[\];:~`<>?\\|,\"«»“”„#$№/+]")
+
+
+def gads_clean(k: str) -> str:
+    """Ключ у вигляді, який приймає Google Ads (без заборонених символів)."""
+    return " ".join(BAD_CHARS.sub(" ", str(k)).lower().split())
+
+
+def norm_key(k: str) -> str:
+    """Ключ для зіставлення відповіді DataForSEO з запитом: регістр, ё→е, апострофи, пробіли."""
+    k = gads_clean(k).replace("ё", "е").replace("’", "'").replace("ʼ", "'").replace("`", "'")
+    return " ".join(re.sub(r"[^\w' -]", " ", k).split())
+
+
+async def _volumes_batch(kws: list[str], lang: str, log=None) -> dict[str, int]:
+    """Один запит search_volume; при помилці — без мови, а далі ділимо пачку навпіл, щоб один «поганий» ключ не зірвав усі."""
+    base = {"keywords": kws, "location_code": config.UA_LOCATION_CODE}
+    try:
+        res = await _dfs("search_volume", {**base, "language_code": HL.get(lang, "uk")})
+    except RuntimeError as e:
+        if log:
+            log(f"{lang.upper()}: DataForSEO відхилив запит ({e}) — пробую без прив'язки до мови")
+        try:
+            res = await _dfs("search_volume", base)
+        except RuntimeError as e2:
+            if len(kws) <= 1:
+                if log:
+                    log(f"{lang.upper()}: ключ «{kws[0] if kws else ''}» Google Ads не приймає ({e2})")
+                return {}
+            mid = len(kws) // 2
+            out = await _volumes_batch(kws[:mid], lang, log)
+            out.update(await _volumes_batch(kws[mid:], lang, log))
+            return out
+    return {norm_key(i.get("keyword", "")): int(i.get("search_volume") or 0) for i in res if i.get("keyword")}
+
+
+async def search_volume(keywords: list[str], lang: str, log=None) -> dict[str, int]:
+    """{ключ (як передали): середньомісячна частотність в Україні}.
     Спершу кеш (VOLUME_CACHE_DAYS), у DataForSEO йдуть лише ключі, яких у кеші немає."""
     if config.MOCK:
         return {k: (len(k) * 7) % 120 for k in keywords}
     if not dfs_enabled():
         return {}
     from . import db
-    kws = _clean(keywords)
-    out = db.cached_volumes(kws, lang, config.VOLUME_CACHE_DAYS)
-    kws = [k for k in kws if k not in out]
-    fresh = {}
-    for i in range(0, len(kws), 1000):
-        res = await _dfs("search_volume", {"keywords": kws[i:i + 1000], "location_code": config.UA_LOCATION_CODE,
-                                            "language_code": HL.get(lang, "uk")})
-        for item in res:
-            fresh[item.get("keyword", "")] = int(item.get("search_volume") or 0)
-    for k in kws:  # ключі, яких Google Ads не повернув, вважаємо нульовими, щоб не платити за них повторно
-        fresh.setdefault(k, 0)
-    if fresh:
+    clean = {}
+    for k in keywords:
+        c = gads_clean(k)
+        if c and len(c) <= 80 and len(c.split()) <= 10:
+            clean.setdefault(c, []).append(k)
+    cached = db.cached_volumes(list(clean), lang, config.VOLUME_CACHE_DAYS)
+    todo = [c for c in clean if c not in cached]
+    fresh_norm = {}
+    for i in range(0, len(todo), 1000):
+        fresh_norm.update(await _volumes_batch(todo[i:i + 1000], lang, log))
+    fresh = {c: fresh_norm.get(norm_key(c), 0) for c in todo}  # не повернуті Google Ads — нуль, щоб не платити вдруге
+    if log and todo:
+        got = sum(1 for c in todo if norm_key(c) in fresh_norm)
+        log(f"{lang.upper()}: DataForSEO повернув {got} з {len(todo)} ключів" + (f" (+{len(cached)} з кешу)" if cached else ""))
+    if fresh_norm:  # не кешуємо нулі, якщо запит повністю провалився
         db.save_volumes(fresh, lang)
-    out.update(fresh)
-    return out
+    vols = {**cached, **(fresh if fresh_norm else {})}
+    return {orig: vols[c] for c, origs in clean.items() for orig in origs if c in vols}
 
 
 async def keyword_ideas(seeds: list[str], lang: str) -> dict[str, int]:

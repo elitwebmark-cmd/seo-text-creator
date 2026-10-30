@@ -28,6 +28,8 @@ WRITER_SYS = """Ти — досвідчений SEO-копірайтер і ре
 10. Без емодзі. Таблиці — у markdown. Жодних заголовків, яких немає в ТЗ, крім фінального розділу медіа-статті (структуру всередині розділу роби абзацами, а списками й таблицями — так, як велить розділ «Формат тексту»).
 11. Посилання — лише на URL із «Перевірених фактів», у форматі [назва джерела](URL).
 
+ПЕРЕД ВІДПРАВКОЮ звір текст із ТЗ сам (редактора після тебе немає — текст іде клієнту): усі заголовки ТЗ на місці й дослівно; обсяг кожного розділу в цілі; ключі — не більше верхньої межі; жодних плейсхолдерів і цифр без джерела; CTA і FAQ — за правилами.
+
 ФОРМАТ ВІДПОВІДІ: лише markdown-текст сторінки, без пояснень. # — H1, ## — H2 (а також «## CTA», «## FAQ»), ### — H3 і питання FAQ.
 
 """
@@ -430,7 +432,8 @@ def check(md: str, tz: dict, lang: str, style: str = "default", facts: list | No
         if note:
             warns.append(f"{kind} «{k}»: {note}")
         if total > hi:
-            issues.append(f"{kind} «{k}»: {total} входжень, норма {lo}–{hi} — прибрати щонайменше {total - hi} (у заголовках {in_head}, їх не чіпати)")
+            (issues if total > hi + 1 else warns).append(
+                f"{kind} «{k}»: {total} входжень, норма {lo}–{hi} — прибрати щонайменше {total - hi} (у заголовках {in_head}, їх не чіпати)")
         elif total < lo:
             (issues if kind == "ключ" and not text_types.is_article(text_types.resolve(project)) else warns).append(f"{kind} «{k}»: {total} входжень, норма {lo}–{hi} — додати {lo - total}")
     # FAQ
@@ -448,6 +451,10 @@ def check(md: str, tz: dict, lang: str, style: str = "default", facts: list | No
         if dom and dom.split(".")[0] in plain.lower() and len(dom.split(".")[0]) > 3:
             issues.append(f"Згадка конкурента: {dom}")
     fi, fw, used = fact_checks(md, tz, lang, facts, project)
+    if not text_types.is_article(text_types.resolve(project)):  # посадкова: без фактчекінгу — лише попередження
+        soft = ("Цифра без перевіреного", "Джерело не назване", "Факт F")
+        fw += [x for x in fi if x.startswith(soft)]
+        fi = [x for x in fi if not x.startswith(soft)]
     si, sw = structure_checks(md, tz, lang, ttype)
     ai, aw = text_types.article_checks(md, ttype, [k for k, _ in tz.get(f"kw_{lang}", [])], lang)
     si += ai
@@ -463,7 +470,7 @@ def check(md: str, tz: dict, lang: str, style: str = "default", facts: list | No
     issues += ti
     warns += tw
     styled = style in styles.STYLES
-    (issues if styled else warns).extend(styles.ai_markers(plain))
+    (issues if styled and text_types.is_article(text_types.resolve(project)) else warns).extend(styles.ai_markers(plain))
     if styled:
         ls = styles.long_sentences(plain)
         if ls > 3:
@@ -629,6 +636,60 @@ async def media_meta(md: str, tz: dict, lang: str) -> dict:
         return {"title": h1[:65], "description": "", "tags": []}
 
 
+BLOCKING = ("Загальний обсяг", "Немає заголовка", "Блок «", "У тексті має бути рівно один H1", "Заголовок H", "Заголовки H4+",
+            "Плейсхолдер", "Посилання не з перевірених", "Цифра без перевіреного", "Джерело не назване", "Факт F",
+            "Згадка конкурента", "Згадка Elit-Web", "Комерційний заклик", "У медіа немає розділу", "FAQ має бути останнім",
+            "Формат статті: абзаци закороткі", "Формат статті: забагато списків", "Риторичні питання", "Російське джерело",
+            "FID замінено", "Розмітку не подавай", "Згадка про створення тексту", "ключ «", "AI-штампи")
+
+
+def blocking(rep: dict, tz: dict) -> list[str]:
+    """Проблеми, через які варто кликати редактора. Решта — у звіт як рекомендації (без витрат)."""
+    out = []
+    vr = norms.volume_range(tz)
+    for x in rep["issues"]:
+        if not x.startswith(BLOCKING):
+            continue
+        if x.startswith("Загальний обсяг") and vr and vr[0] * 0.92 <= rep["chars"] <= vr[1] * 1.08:
+            continue  # відхилення до 8% — не привід для окремого виклику
+        out.append(x)
+    return out
+
+
+EMOJI_RE = re.compile(r"[\U0001F300-\U0001FAFF\u2600-\u27BF]\ufe0f?")
+
+
+def autofix(md: str, ttype: str) -> str:
+    """Безкоштовні виправлення кодом: емодзі; для статей — жирний в абзацах, «Так/Ні» на початку, знаки питання в заголовках."""
+    md = EMOJI_RE.sub("", md)
+    if not text_types.is_article(ttype):
+        return md
+    out, in_faq, after_head = [], False, False
+    for line in md.split("\n"):
+        st = line.strip()
+        m = re.match(r"^(#{1,3})\s+(.+)$", st)
+        if m:
+            lvl, h = len(m.group(1)), m.group(2).strip()
+            if lvl == 2:
+                in_faq = h.upper() == "FAQ"
+            if ttype == text_types.MEDIA and lvl in (2, 3) and not in_faq:
+                h = re.sub(r"\s*\?+$", "", h)
+            if in_faq and lvl == 3 and not h.endswith("?"):
+                h = h.rstrip(".:") + "?"
+            out.append(f"{m.group(1)} {h}")
+            after_head = True
+            continue
+        if st and not st.startswith(("|", "-", "*", "•")) and not re.match(r"^\d+[.)]\s", st):
+            if not re.fullmatch(r"\*\*\[[^\]]+\]\*\*", st):
+                line = line.replace("**", "")
+            if after_head:
+                line = re.sub(r"^(\s*)(Так|Ні|Да|Нет)[,.!]?\s+(\S)", lambda mm: mm.group(1) + mm.group(3).upper(), line, count=1)
+        if st:
+            after_head = False
+        out.append(line)
+    return "\n".join(out)
+
+
 async def write_text(tz: dict, lang: str, project: dict, research: dict | None, log, style: str = "default",
                      facts: list | None = None) -> dict:
     import asyncio
@@ -660,39 +721,37 @@ async def write_text(tz: dict, lang: str, project: dict, research: dict | None, 
         log(f"{lang.upper()}: правок застосовано {ok}" + (f", не знайдено у тексті {bad}" if bad else ""))
         return new, ok
 
+    article = text_types.is_article(ttype)
+    md = autofix(md, ttype)
     versions, rounds, aud = [], 0, []
     while True:
-        if any(x.startswith("Загальний обсяг") for x in ck(md)["issues"]) and not config.MOCK:
-            md = await fix_sections(md, tz, lang, kwl, log, style)
+        if any(x.startswith("Загальний обсяг") for x in blocking(ck(md), tz)) and not config.MOCK:
+            md = autofix(await fix_sections(md, tz, lang, kwl, log, style), ttype)
         rep, spell = ck(md), await languagetool(md, lang)
-        cur_aud = await audit(md, brief) if rounds == 0 else []  # аудит Claude — на чернетці; далі — автоматика
+        cur_aud = await audit(md, brief) if (rounds == 0 and article) else []  # аудит — лише для статей, на чернетці
         aud = aud or cur_aud
-        crit = sum(1 for a in cur_aud if a.get("severity") == "critical")
-        log(f"{lang.upper()}: перевірка (раунд {rounds}) — {len(rep['issues'])} проблем автоматики"
-            + (f", {crit} критичних зауважень аудиту ТЗ" if rounds == 0 else "") + f", {len(spell)} LanguageTool, {rep['chars']} зн.")
+        crit = [a for a in cur_aud if a.get("severity") == "critical"]
+        block = blocking(rep, tz)
+        log(f"{lang.upper()}: перевірка (раунд {rounds}) — {len(block)} суттєвих проблем, {len(rep['issues']) - len(block)} дрібних"
+            + (f", {len(crit)} критичних зауважень аудиту ТЗ" if cur_aud or (rounds == 0 and article) else "")
+            + f", {len(spell)} LanguageTool, {rep['chars']} зн.")
         versions.append((_score(rep, spell), -rounds, md, rep, spell))
-        if (rep["ok"] and not crit and len(spell) < 2) or rounds >= config.TEXT_MAX_FIX_ROUNDS or config.MOCK:
+        if (not block and not crit) or rounds >= config.TEXT_MAX_FIX_ROUNDS or config.MOCK:
+            if rounds == 0 and not config.MOCK:
+                log(f"{lang.upper()}: редактор не потрібен")
             break
         rounds += 1
-        log(f"{lang.upper()}: редактор виправляє (раунд {rounds})")
-        md, ok = await edit(_report(rep, spell, cur_aud), "тексти: редактор")
+        log(f"{lang.upper()}: редактор виправляє {len(block)} суттєвих проблем" + (f" і {len(crit)} зауважень аудиту" if crit else ""))
+        md, ok = await edit(_report({**rep, "issues": block}, spell, crit), "тексти: редактор")
+        md = autofix(md, ttype)
         if not ok:
             break
     best = min(versions, key=lambda v: (v[0], v[1]))
     md, rep, spell = best[2], best[3], best[4]
     if len(versions) > 1 and best is not versions[-1]:
         log(f"{lang.upper()}: остання редакція не краща — беру найкращу версію (раунд {-best[1]})")
-    if not config.MOCK:
-        if rounds == 0:
-            # коректура правками; приймаємо лише без погіршень
-            log(f"{lang.upper()}: фінальна коректура")
-            fixed, ok = await edit("## Звіт перевірки\n- Автоматичних проблем не знайдено. Зроби лише коректуру: орфографія, пунктуація, "
-                                   "граматика, стиль, логіка. Нічого не скорочуй і не додавай.", "тексти: коректура")
-            r2 = ck(fixed)
-            if ok and len(r2["issues"]) <= len(rep["issues"]):
-                md, rep = fixed, r2
-        else:
-            aud = await audit(md, brief)  # фінальний аудит — для звіту
+    if rounds and article and not config.MOCK:
+        aud = await audit(md, brief)  # фінальний аудит статті — для звіту
     leftover = [a for a in aud if a.get("severity") == "critical"]
     rep = {**rep, "audit": aud}
     if leftover:

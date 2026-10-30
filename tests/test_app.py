@@ -77,7 +77,7 @@ def test_dfs_only_for_missing(monkeypatch):
     from app import pipeline, volumes, db
     calls = []
 
-    async def fake_sv(kws, lang):
+    async def fake_sv(kws, lang, log=None):
         calls.append((lang, list(kws)))
         return {k: 70 for k in kws}
 
@@ -196,7 +196,8 @@ def test_styles_catalog_detect_and_brief():
     assert "ПРАКТИК-РЕЗУЛЬТАТНИК" in b and "РЕДАКЦІЙНІ РАМКИ" in b and "російською" in b and "12 років" not in b
     assert "Стиль і тональність" not in writer.tz_brief(tz, "ua", {}, None, "default")
     md = "# X\n\nУ сучасному світі це не просто сайт, а інструмент. Це не просто текст, а продаж!"
-    assert any("AI-штампи" in x for x in writer.check(md, tz, "ua", "A")["issues"])
+    assert any("AI-штампи" in x for x in writer.check(md, tz, "ua", "A", [], {"text_type": "article"})["issues"])
+    assert any("AI-штампи" in x for x in writer.check(md, tz, "ua", "A")["warnings"])  # посадкова — лише рекомендація
     assert any("AI-штампи" in x for x in writer.check(md, tz, "ua")["warnings"])
 
 
@@ -316,7 +317,7 @@ def test_cost_tracking(monkeypatch):
 
 def test_docx_has_hyperlink_and_sources():
     import docx, io
-    body = {"project": {"domain": "elit-web.ua"}, "formats": ["texts"],
+    body = {"project": {"domain": "elit-web.ua", "text_type": "article"}, "formats": ["texts"],
             "pages": [{"name_ua": "SERM", "ua": [["serm послуги", 40]]}]}
     j = _wait(client.post("/api/jobs", json=body).json()["id"])
     doc = [f for f in j["files"] if f.endswith(".docx")][0]
@@ -423,3 +424,58 @@ def test_call_text_continues_after_max_tokens(monkeypatch):
     monkeypatch.setattr(llm, "_client", lambda: SimpleNamespace(messages=SimpleNamespace(stream=lambda **kw: Stream(**kw))))
     out = llm.call_text("sys", "prompt", 100, step="тест")
     assert out.endswith("Частина два.") and len(calls) == 2 and calls[1][-1]["role"] == "assistant"
+
+
+def test_landing_is_simple_and_editor_gated(monkeypatch):
+    import asyncio
+    from app import writer, prompts, llm, config, text_types
+    tz = llm.normalize(prompts.EXAMPLE)
+    # дрібні проблеми (LSI, FAQ, перевищення ключа на 1) не кличуть редактора
+    rep = {"issues": ["Відповідь FAQ №1: 230 зн., треба 250–400", "Розділ «X»: 900 зн., ціль 1000–1200"], "chars": 9000}
+    assert writer.blocking(rep, tz) == []
+    assert writer.blocking({"issues": ["Немає заголовка (або порушено порядок): «X»"], "chars": 9000}, tz)
+    # посадкова: цифра без джерела — лише попередження
+    r = writer.check("# A\n\nЗа даними досліджень, 43% компаній так роблять.", tz, "ua", "default", None, {})
+    assert not any("Цифра без перевіреного" in x for x in r["issues"]) and any("Цифра без перевіреного" in x for x in r["warnings"])
+    # автофікс для статей
+    fixed = text_types and writer.autofix("# T\n\n## Що таке X?\n\nТак, **важливо** це.\n\n## FAQ\n\n### Скільки коштує\n\nВідповідь.", "media")
+    assert "## Що таке X\n" in fixed and "**" not in fixed and "Важливо це." in fixed and "### Скільки коштує?" in fixed
+    # посадкова з чистою чернеткою — без редактора, без коректури, без аудиту
+    good = writer._mock_text(tz, "ua")
+    steps = []
+
+    def fake(system, prompt, max_tokens=16000, **kw):
+        steps.append(kw.get("step"))
+        return good
+
+    async def no_lt(md, lang):
+        return []
+
+    monkeypatch.setattr(config, "MOCK", False)
+    monkeypatch.setattr(llm, "call_text", fake)
+    monkeypatch.setattr(writer, "languagetool", no_lt)
+    monkeypatch.setattr(writer, "blocking", lambda rep, tz: [])
+    asyncio.run(writer.write_text(tz, "ua", {}, None, lambda m: None))
+    assert steps == ["тексти: автор"]
+
+
+def test_volumes_ru_fallback_and_bad_keyword(monkeypatch):
+    import asyncio
+    from app import volumes, config
+    sent = []
+
+    async def fake_dfs(endpoint, payload):
+        sent.append(payload)
+        if "language_code" in payload:  # мову не прийнято для цієї локації
+            raise RuntimeError("40501 Invalid Field: 'language_code'")
+        if any("погано" in k for k in payload["keywords"]):
+            raise RuntimeError("40501 Invalid keyword")
+        return [{"keyword": k.replace("е", "ё", 1) if k.startswith("реклама") else k, "search_volume": 50} for k in payload["keywords"]]
+
+    monkeypatch.setattr(volumes, "_dfs", fake_dfs)
+    monkeypatch.setattr(volumes, "dfs_enabled", lambda: True)
+    monkeypatch.setattr(config, "MOCK", False)
+    logs = []
+    out = asyncio.run(volumes.search_volume(["Реклама в Telegram Ads?", "telegram ads цена", "погано"], "ru", logs.append))
+    assert out["Реклама в Telegram Ads?"] == 50 and out["telegram ads цена"] == 50 and out.get("погано", 0) == 0
+    assert any("без прив'язки до мови" in l for l in logs)

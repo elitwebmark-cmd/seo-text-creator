@@ -46,7 +46,7 @@ VOLUME_CACHE_DAYS = _int("VOLUME_CACHE_DAYS", 90)
 
 # Перевірка орфографії: LanguageTool (публічний API або власний сервер); порожньо = вимкнено
 LANGUAGETOOL_URL = _env("LANGUAGETOOL_URL", "https://api.languagetool.org/v2/check")
-TEXT_MAX_FIX_ROUNDS = _int("TEXT_MAX_FIX_ROUNDS", 2)
+TEXT_MAX_FIX_ROUNDS = _int("TEXT_MAX_FIX_ROUNDS", 1)
 # Факти з джерелами для текстів: пошук через Serper + перевірка цитат кодом
 FACTS_ENABLED = os.getenv("FACTS_ENABLED", "1") == "1"
 FACTS_MAX_PAGES = _int("FACTS_MAX_PAGES", 8)
